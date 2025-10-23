@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"tg-robot-sim/models"
+	"tg-robot-sim/storage/models"
 	"time"
 
 	"gorm.io/gorm"

@@ -7,18 +7,19 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 	"tg-robot-sim/services"
-	"tg-robot-sim/storage"
+	"tg-robot-sim/storage/models"
+	"tg-robot-sim/storage/repository"
 )
 
 // StartHandler 处理 /start 命令
 type StartHandler struct {
 	bot           *tgbotapi.BotAPI
-	userRepo      storage.UserRepository
+	userRepo      repository.UserRepository
 	dialogService services.DialogService
 }
 
 // NewStartHandler 创建 Start 命令处理器
-func NewStartHandler(bot *tgbotapi.BotAPI, userRepo storage.UserRepository, dialogService services.DialogService) *StartHandler {
+func NewStartHandler(bot *tgbotapi.BotAPI, userRepo repository.UserRepository, dialogService services.DialogService) *StartHandler {
 	return &StartHandler{
 		bot:           bot,
 		userRepo:      userRepo,

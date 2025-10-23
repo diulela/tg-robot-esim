@@ -127,21 +127,21 @@ func (s *sessionService) GetUserContext(userID int64) (*UserContext, error) {
 }
 
 // SetUserContext 设置用户上下文
-func (s *sessionService) SetUserContext(userID int64, context *UserContext) error {
-	if context == nil {
+func (s *sessionService) SetUserContext(userID int64, userCtx *UserContext) error {
+	if userCtx == nil {
 		return fmt.Errorf("context cannot be nil")
 	}
 
-	context.UserID = userID
-	context.LastActive = time.Now()
+	userCtx.UserID = userID
+	userCtx.LastActive = time.Now()
 
 	// 更新缓存
 	s.cacheMutex.Lock()
-	s.cache[userID] = context
+	s.cache[userID] = userCtx
 	s.cacheMutex.Unlock()
 
 	// 序列化并保存到数据库
-	session, err := s.serializeUserContext(context)
+	session, err := s.serializeUserContext(userCtx)
 	if err != nil {
 		return fmt.Errorf("failed to serialize user context: %w", err)
 	}
@@ -217,24 +217,24 @@ func (s *sessionService) GetActiveSessionCount() int {
 }
 
 // serializeUserContext 序列化用户上下文到数据库模型
-func (s *sessionService) serializeUserContext(ctx *UserContext) (*models.UserSession, error) {
-	parametersJSON, err := json.Marshal(ctx.Parameters)
+func (s *sessionService) serializeUserContext(userCtx *UserContext) (*models.UserSession, error) {
+	parametersJSON, err := json.Marshal(userCtx.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal parameters: %w", err)
 	}
 
-	menuPathJSON, err := json.Marshal(ctx.MenuPath)
+	menuPathJSON, err := json.Marshal(userCtx.MenuPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal menu path: %w", err)
 	}
 
 	return &models.UserSession{
-		UserID:      ctx.UserID,
+		UserID:      userCtx.UserID,
 		SessionData: string(parametersJSON),
 		MenuPath:    string(menuPathJSON),
-		CurrentMenu: ctx.CurrentMenu,
+		CurrentMenu: userCtx.CurrentMenu,
 		Parameters:  string(parametersJSON),
-		LastActive:  ctx.LastActive,
+		LastActive:  userCtx.LastActive,
 	}, nil
 }
 

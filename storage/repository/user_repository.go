@@ -5,7 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"tg-robot-sim/models"
+	"tg-robot-sim/storage/models"
 )
 
 // UserRepository 用户仓库接口
