@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  telegram-bot:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: tg-robot-sim
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TRON_API_KEY=${TRON_API_KEY}
+      - DATABASE_URL=sqlite:///app/data/bot.db
+      - LOG_LEVEL=info
+    volumes:
+      - bot_data:/app/data
+      - bot_logs:/app/logs
+      - ./config.json:/app/config/config.json:ro
+    networks:
+      - bot_network
+    depends_on:
+      - mysql
+    healthcheck:
+      test: ["CMD", "pgrep", "main"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mysql:
+    image: mysql:8.0
+    container_name: tg-robot-mysql
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpassword}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-telegram_bot}
+      - MYSQL_USER=${MYSQL_USER:-botuser}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-botpassword}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "3306:3306"
+    networks:
+      - bot_network
+    command: --default-authentication-plugin=mysql_native_password
+
+  redis:
+    image: redis:7-alpine
+    container_name: tg-robot-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - bot_network
+    command: redis-server --appendonly yes
+
+volumes:
+  bot_data:
+    driver: local
+  bot_logs:
+    driver: local
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  bot_network:
+    driver: bridge
