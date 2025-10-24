@@ -119,12 +119,22 @@ func (r *Registry) RouteCallback(ctx context.Context, callback *tgbotapi.Callbac
 
 	// 创建处理函数
 	handlerFunc := func(ctx context.Context, cb *tgbotapi.CallbackQuery) error {
-		for _, handler := range r.callbackHandlers {
+		handlerFound := false
+		for i, handler := range r.callbackHandlers {
 			if handler.CanHandle(cb) {
-				return handler.HandleCallback(ctx, cb)
+				handlerFound = true
+				// 注意：这里不打印日志，因为 registry 没有 logger
+				err := handler.HandleCallback(ctx, cb)
+				if err != nil {
+					return fmt.Errorf("handler %d (%s) failed: %w", i, handler.GetHandlerName(), err)
+				}
+				return nil
 			}
 		}
-		return fmt.Errorf("no handler found for callback")
+		if !handlerFound {
+			return fmt.Errorf("no handler found for callback: %s", cb.Data)
+		}
+		return nil
 	}
 
 	// 应用中间件链
