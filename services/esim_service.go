@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"tg-robot-sim/pkg/sdk/esim"
 )
@@ -87,21 +88,27 @@ func (s *esimServiceImpl) TopupEsim(ctx context.Context, orderID int, req esim.T
 
 // FormatProductMessage 格式化产品信息为消息文本
 func FormatProductMessage(product *esim.Product) string {
-	msg := fmt.Sprintf("📱 *%s*\n\n", product.Name)
+	msg := fmt.Sprintf("📱 *%s*\n\n", escapeMarkdownV2(product.Name))
 	msg += fmt.Sprintf("🌍 类型: %s\n", getProductTypeText(product.Type))
 
 	// 国家列表
 	if len(product.Countries) > 0 {
 		msg += "🗺️ 支持国家: "
-		for i, country := range product.Countries {
-			if i > 0 {
-				msg += ", "
+		if len(product.Countries) <= 5 {
+			for i, country := range product.Countries {
+				if i > 0 {
+					msg += "、"
+				}
+				msg += country.CN
 			}
-			msg += country.CN
-			if i >= 2 {
-				msg += fmt.Sprintf(" 等%d个国家", len(product.Countries))
-				break
+		} else {
+			for i := 0; i < 5; i++ {
+				if i > 0 {
+					msg += "、"
+				}
+				msg += product.Countries[i].CN
 			}
+			msg += fmt.Sprintf(" 等%d个国家", len(product.Countries))
 		}
 		msg += "\n"
 	}
@@ -110,9 +117,25 @@ func FormatProductMessage(product *esim.Product) string {
 	msg += fmt.Sprintf("📊 流量: %s\n", formatDataSize(product.DataSize))
 	msg += fmt.Sprintf("⏰ 有效期: %d天\n", product.ValidDays)
 
-	// 价格
-	msg += fmt.Sprintf("💰 零售价: $%.2f\n", product.RetailPrice)
-	msg += fmt.Sprintf("💵 代理价: $%.2f\n", product.AgentPrice)
+	// 价格 - 优先使用 Price 字段，如果为 0 则使用 RetailPrice
+	price := product.Price
+	if price == 0 {
+		price = product.RetailPrice
+	}
+
+	costPrice := product.CostPrice
+	if costPrice == 0 {
+		costPrice = product.AgentPrice
+	}
+
+	msg += fmt.Sprintf("\n💰 零售价: *$%.2f*\n", price)
+	msg += fmt.Sprintf("💵 成本价: $%.2f\n", costPrice)
+
+	if price > 0 && costPrice > 0 {
+		profit := price - costPrice
+		profitPercent := (profit / price) * 100
+		msg += fmt.Sprintf("📈 利润: $%.2f \\(%.1f%%\\)\n", profit, profitPercent)
+	}
 
 	// 特性
 	if len(product.Features) > 0 {
@@ -123,6 +146,31 @@ func FormatProductMessage(product *esim.Product) string {
 	}
 
 	return msg
+}
+
+// escapeMarkdownV2 转义 MarkdownV2 特殊字符
+func escapeMarkdownV2(text string) string {
+	replacer := strings.NewReplacer(
+		"_", "\\_",
+		"*", "\\*",
+		"[", "\\[",
+		"]", "\\]",
+		"(", "\\(",
+		")", "\\)",
+		"~", "\\~",
+		"`", "\\`",
+		">", "\\>",
+		"#", "\\#",
+		"+", "\\+",
+		"-", "\\-",
+		"=", "\\=",
+		"|", "\\|",
+		"{", "\\{",
+		"}", "\\}",
+		".", "\\.",
+		"!", "\\!",
+	)
+	return replacer.Replace(text)
 }
 
 // getProductTypeText 获取产品类型文本

@@ -321,7 +321,8 @@ func (h *ProductsHandler) showProductDetail(ctx context.Context, message *tgbota
 		return h.sendError(message.Chat.ID, "产品不存在")
 	}
 
-	product := resp.Data
+	// 注意：产品数据在 Message 字段中
+	product := resp.Message
 	text := services.FormatProductMessage(&product)
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(

@@ -24,15 +24,21 @@ type Product struct {
 	Name           string      `json:"name"`           // 产品中文名称
 	NameEn         string      `json:"nameEn"`         // 产品英文名称
 	Description    string      `json:"description"`    // 产品详细描述
+	DescriptionEn  string      `json:"descriptionEn"`  // 产品英文描述
 	Type           ProductType `json:"type"`           // 产品类型
 	Countries      []Country   `json:"countries"`      // 支持的国家列表
 	DataSize       int         `json:"dataSize"`       // 流量大小（MB）
 	ValidDays      int         `json:"validDays"`      // 有效天数
 	Features       []string    `json:"features"`       // 产品特性列表
 	Image          string      `json:"image"`          // 产品图片URL
+	Gallery        interface{} `json:"gallery"`        // 图片库
+	Price          float64     `json:"price"`          // 价格（美元）- API 返回字段
 	RetailPrice    float64     `json:"retailPrice"`    // 零售价格（美元）
 	AgentPrice     float64     `json:"agentPrice"`     // 代理商价格（美元）
+	CostPrice      float64     `json:"costPrice"`      // 成本价格（美元）
 	PlatformProfit float64     `json:"platformProfit"` // 平台利润（美元）
+	ThirdPartyID   string      `json:"thirdPartyId"`   // 第三方ID
+	ThirdPartyData interface{} `json:"thirdPartyData"` // 第三方数据
 	IsHot          bool        `json:"isHot"`          // 是否为热门产品
 	IsRecommend    bool        `json:"isRecommend"`    // 是否为推荐产品
 	SortOrder      int         `json:"sortOrder"`      // 排序顺序
@@ -65,9 +71,11 @@ type ProductListMessage struct {
 
 // ProductDetailResponse 产品详情响应
 type ProductDetailResponse struct {
-	Success bool    `json:"success"`
-	Message string  `json:"message"`
-	Data    Product `json:"data"`
+	Success   bool    `json:"success"`
+	Code      int     `json:"code"`
+	Message   Product `json:"message"` // 注意：这里 message 字段包含产品数据
+	Data      string  `json:"data"`
+	Timestamp string  `json:"timestamp"`
 }
 
 // ProductParams 产品查询参数
