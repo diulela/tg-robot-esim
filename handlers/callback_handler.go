@@ -121,12 +121,7 @@ func (h *CallbackQueryHandler) editMessage(originalMessage *tgbotapi.Message, re
 
 	_, err := h.bot.Send(editMsg)
 
-	// 忽略 "message is not modified" 错误
 	if err != nil {
-		if strings.Contains(err.Error(), "message is not modified") {
-			h.logger.Debug("Message content unchanged, skipping edit (this is normal)")
-			return nil
-		}
 		h.logger.Error("Failed to edit message: %v", err)
 		return err
 	}

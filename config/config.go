@@ -63,9 +63,10 @@ type ServerConfig struct {
 
 // EsimSDKConfig eSIM SDK 配置
 type EsimSDKConfig struct {
-	APIKey    string `json:"api_key"`
-	APISecret string `json:"api_secret"`
-	BaseURL   string `json:"base_url"`
+	APIKey         string `json:"api_key"`
+	APISecret      string `json:"api_secret"`
+	BaseURL        string `json:"base_url"`
+	TimezoneOffset int    `json:"timezone_offset"` // 时区偏移（小时），例如：8 表示 UTC+8
 }
 
 // LoadConfig 从文件加载配置
@@ -133,9 +134,10 @@ func CreateDefaultConfig(configPath string) error {
 			IdleTimeout:  120 * time.Second,
 		},
 		EsimSDK: EsimSDKConfig{
-			APIKey:    "${ESIM_API_KEY}",
-			APISecret: "${ESIM_API_SECRET}",
-			BaseURL:   "https://api.your-domain.com",
+			APIKey:         "${ESIM_API_KEY}",
+			APISecret:      "${ESIM_API_SECRET}",
+			BaseURL:        "https://api.your-domain.com",
+			TimezoneOffset: 0, // 默认使用 UTC 时间
 		},
 	}
 

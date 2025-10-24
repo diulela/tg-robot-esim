@@ -17,19 +17,21 @@ import (
 
 // Config SDK配置
 type Config struct {
-	APIKey     string
-	APISecret  string
-	BaseURL    string
-	Timeout    time.Duration
-	HTTPClient *http.Client
+	APIKey         string
+	APISecret      string
+	BaseURL        string
+	Timeout        time.Duration
+	HTTPClient     *http.Client
+	TimezoneOffset int // 时区偏移（小时），例如：8 表示 UTC+8，0 表示 UTC
 }
 
 // Client eSIM API客户端
 type Client struct {
-	apiKey     string
-	apiSecret  string
-	baseURL    string
-	httpClient *http.Client
+	apiKey         string
+	apiSecret      string
+	baseURL        string
+	httpClient     *http.Client
+	timezoneOffset int
 }
 
 // NewClient 创建新的SDK客户端
@@ -47,11 +49,21 @@ func NewClient(config Config) *Client {
 	}
 
 	return &Client{
-		apiKey:     config.APIKey,
-		apiSecret:  config.APISecret,
-		baseURL:    config.BaseURL,
-		httpClient: config.HTTPClient,
+		apiKey:         config.APIKey,
+		apiSecret:      config.APISecret,
+		baseURL:        config.BaseURL,
+		httpClient:     config.HTTPClient,
+		timezoneOffset: config.TimezoneOffset,
 	}
+}
+
+// getTimestamp 获取时间戳（考虑时区偏移）
+func (c *Client) getTimestamp() string {
+	now := time.Now().UTC()
+	if c.timezoneOffset != 0 {
+		now = now.Add(time.Duration(c.timezoneOffset) * time.Hour)
+	}
+	return strconv.FormatInt(now.Unix(), 10)
 }
 
 // generateSignature 生成API签名
@@ -74,7 +86,7 @@ func generateNonce(length int) string {
 
 // request 发送API请求
 func (c *Client) request(method, path string, data interface{}) (map[string]interface{}, error) {
-	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	timestamp := c.getTimestamp()
 	nonce := generateNonce(16)
 
 	var bodyStr string
@@ -90,6 +102,15 @@ func (c *Client) request(method, path string, data interface{}) (map[string]inte
 	}
 
 	signature := c.generateSignature(method, path, bodyStr, timestamp, nonce)
+
+	// 调试日志
+	fmt.Printf("[DEBUG] API Request:\n")
+	fmt.Printf("  Method: %s\n", method)
+	fmt.Printf("  Path: %s\n", path)
+	fmt.Printf("  Timestamp: %s\n", timestamp)
+	fmt.Printf("  Nonce: %s\n", nonce)
+	fmt.Printf("  Body: %s\n", bodyStr)
+	fmt.Printf("  Signature: %s\n", signature)
 
 	reqURL := c.baseURL + path
 	req, err := http.NewRequest(method, reqURL, bodyReader)
@@ -135,7 +156,7 @@ func (c *Client) request(method, path string, data interface{}) (map[string]inte
 
 // requestTyped 发送API请求并解析到指定类型
 func (c *Client) requestTyped(method, path string, data interface{}, result interface{}) error {
-	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	timestamp := c.getTimestamp()
 	nonce := generateNonce(16)
 
 	var bodyStr string
@@ -151,6 +172,16 @@ func (c *Client) requestTyped(method, path string, data interface{}, result inte
 	}
 
 	signature := c.generateSignature(method, path, bodyStr, timestamp, nonce)
+
+	// 调试日志
+	fmt.Printf("[DEBUG] API Request (Typed):\n")
+	fmt.Printf("  Method: %s\n", method)
+	fmt.Printf("  Path: %s\n", path)
+	fmt.Printf("  Timestamp: %s\n", timestamp)
+	fmt.Printf("  Nonce: %s\n", nonce)
+	fmt.Printf("  Body: %s\n", bodyStr)
+	fmt.Printf("  SignString: %s%s%s%s%s\n", method, path, bodyStr, timestamp, nonce)
+	fmt.Printf("  Signature: %s\n", signature)
 
 	reqURL := c.baseURL + path
 	req, err := http.NewRequest(method, reqURL, bodyReader)

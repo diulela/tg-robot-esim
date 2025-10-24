@@ -362,13 +362,6 @@ func (h *ProductsHandler) editOrSendMessage(message *tgbotapi.Message, text stri
 	editMsg.ReplyMarkup = &keyboard
 
 	_, err := h.bot.Send(editMsg)
-
-	// 忽略 "message is not modified" 错误
-	if err != nil && strings.Contains(err.Error(), "message is not modified") {
-		h.logger.Debug("Message content unchanged, skipping edit")
-		return nil
-	}
-
 	return err
 }
 

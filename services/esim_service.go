@@ -37,11 +37,12 @@ type esimServiceImpl struct {
 }
 
 // NewEsimService 创建eSIM服务
-func NewEsimService(apiKey, apiSecret, baseURL string) EsimService {
+func NewEsimService(apiKey, apiSecret, baseURL string, timezoneOffset int) EsimService {
 	client := esim.NewClient(esim.Config{
-		APIKey:    apiKey,
-		APISecret: apiSecret,
-		BaseURL:   baseURL,
+		APIKey:         apiKey,
+		APISecret:      apiSecret,
+		BaseURL:        baseURL,
+		TimezoneOffset: timezoneOffset,
 	})
 
 	return &esimServiceImpl{

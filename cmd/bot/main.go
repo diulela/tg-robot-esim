@@ -96,8 +96,9 @@ func main() {
 			cfg.EsimSDK.APIKey,
 			cfg.EsimSDK.APISecret,
 			cfg.EsimSDK.BaseURL,
+			cfg.EsimSDK.TimezoneOffset,
 		)
-		appLogger.Info("eSIM service initialized")
+		appLogger.Info("eSIM service initialized with timezone offset: %d hours", cfg.EsimSDK.TimezoneOffset)
 	} else {
 		appLogger.Warn("eSIM service not configured, product features will be disabled")
 	}
