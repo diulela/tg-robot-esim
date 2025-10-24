@@ -378,14 +378,16 @@ func (h *ProductsHandler) answerCallback(callbackID string) error {
 }
 
 func (h *ProductsHandler) showMainMenu(message *tgbotapi.Message) error {
-	text := "📱 *主菜单*\n\n请选择功能："
+	text := "📱 <b>主菜单</b>\n\n请选择您需要的功能："
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🛍️ 浏览产品", "products_back"),
+			tgbotapi.NewInlineKeyboardButtonData("📦 我的订单", "my_orders"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📦 我的订单", "my_orders"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 钱包管理", "wallet_menu"),
+			tgbotapi.NewInlineKeyboardButtonData("⚙️ 设置", "settings"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("ℹ️ 帮助", "help"),
@@ -393,7 +395,7 @@ func (h *ProductsHandler) showMainMenu(message *tgbotapi.Message) error {
 	)
 
 	editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, message.MessageID, text)
-	editMsg.ParseMode = "Markdown"
+	editMsg.ParseMode = "HTML"
 	editMsg.ReplyMarkup = &keyboard
 
 	_, err := h.bot.Send(editMsg)

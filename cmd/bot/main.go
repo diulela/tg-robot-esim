@@ -89,6 +89,19 @@ func main() {
 	dialogService := services.NewDialogService(sessionService, db.GetUserRepository(), menuService, appLogger)
 	appLogger.Info("Dialog service initialized")
 
+	// 初始化 eSIM 服务
+	var esimService services.EsimService
+	if cfg.EsimSDK.APIKey != "" && cfg.EsimSDK.APIKey != "${ESIM_API_KEY}" {
+		esimService = services.NewEsimService(
+			cfg.EsimSDK.APIKey,
+			cfg.EsimSDK.APISecret,
+			cfg.EsimSDK.BaseURL,
+		)
+		appLogger.Info("eSIM service initialized")
+	} else {
+		appLogger.Warn("eSIM service not configured, product features will be disabled")
+	}
+
 	// 初始化 Telegram Bot
 	telegramBot, err := bot.NewBot(&cfg.Telegram, appLogger)
 	if err != nil {
@@ -128,6 +141,26 @@ func main() {
 	if err := registry.RegisterCommandHandler(helpHandler); err != nil {
 		appLogger.Error("Failed to register help handler: %v", err)
 		log.Fatalf("Failed to register help handler: %v", err)
+	}
+
+	menuHandler := handlers.NewMenuHandler(telegramBot.GetAPI(), menuService)
+	if err := registry.RegisterCommandHandler(menuHandler); err != nil {
+		appLogger.Error("Failed to register menu handler: %v", err)
+		log.Fatalf("Failed to register menu handler: %v", err)
+	}
+
+	// 注册产品处理器（如果 eSIM 服务已配置）
+	if esimService != nil {
+		productsHandler := handlers.NewProductsHandler(telegramBot.GetAPI(), esimService, appLogger)
+		if err := registry.RegisterCommandHandler(productsHandler); err != nil {
+			appLogger.Error("Failed to register products command handler: %v", err)
+			log.Fatalf("Failed to register products command handler: %v", err)
+		}
+		if err := registry.RegisterCallbackHandler(productsHandler); err != nil {
+			appLogger.Error("Failed to register products callback handler: %v", err)
+			log.Fatalf("Failed to register products callback handler: %v", err)
+		}
+		appLogger.Info("Products handler registered successfully")
 	}
 
 	// 注册消息处理器

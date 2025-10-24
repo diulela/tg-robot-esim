@@ -36,6 +36,6 @@
   "esim_sdk": {
     "api_key": "ak_4bfa7296d37d5cf2358b7de013935088fc798b88",
     "api_secret": "245597c23fc6f69e6b69785d2d7112172efb2f5c4d85d52cc9b92974c4129958",
-    "endpoint" : "https://api.xigrocoltd.com"
+    "base_url": "https://api.xigrocoltd.com"
   }
 }

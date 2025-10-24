@@ -79,6 +79,7 @@ func (h *CallbackQueryHandler) parseCallbackData(data string) (action string, pa
 		}
 	}
 
+	h.logger.Debug("Parsed callback - action: %s, params: %v", action, params)
 	return action, params
 }
 

@@ -85,19 +85,21 @@ func (h *StartHandler) sendResponse(chatID int64, response *services.DialogRespo
 		msg.ParseMode = response.ParseMode
 	}
 
-	// 检查是否需要显示主菜单
-	if showMenu, ok := response.Parameters["show_main_menu"].(bool); ok && showMenu {
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("📱 主菜单", "main_menu"),
-				tgbotapi.NewInlineKeyboardButtonData("ℹ️ 帮助", "help"),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("⚙️ 设置", "settings"),
-			),
-		)
-		msg.ReplyMarkup = keyboard
-	}
+	// 始终显示主菜单按钮
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🛍️ 浏览产品", "products_back"),
+			tgbotapi.NewInlineKeyboardButtonData("📦 我的订单", "my_orders"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("💰 钱包管理", "wallet_menu"),
+			tgbotapi.NewInlineKeyboardButtonData("⚙️ 设置", "settings"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("ℹ️ 帮助", "help"),
+		),
+	)
+	msg.ReplyMarkup = keyboard
 
 	_, err := h.bot.Send(msg)
 	return err

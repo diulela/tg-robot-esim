@@ -325,6 +325,10 @@ func (m *menuService) handleCustomAction(ctx context.Context, userID int64, user
 		return m.getLanguageSettings(userID)
 	case "notification_settings":
 		return m.getNotificationSettings(userID)
+	case "products_back":
+		return m.getProductsMenu(userID)
+	case "my_orders":
+		return m.getOrdersMenu(userID)
 	default:
 		m.logger.Warn("Unknown menu action: %s", action)
 		return m.GetMainMenu(userID)
@@ -388,6 +392,55 @@ func (m *menuService) getNotificationSettings(userID int64) (*MenuResponse, erro
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔙 返回设置", "settings_menu"),
+		),
+	)
+
+	return &MenuResponse{
+		Text:      text,
+		Keyboard:  keyboard,
+		ParseMode: "HTML",
+		EditMode:  true,
+	}, nil
+}
+
+// getProductsMenu 获取产品菜单
+func (m *menuService) getProductsMenu(userID int64) (*MenuResponse, error) {
+	text := "📱 <b>eSIM 产品商城</b>\n\n"
+	text += "请选择产品类型：\n\n"
+	text += "🏠 <b>本地</b> - 单个国家使用\n"
+	text += "🌏 <b>区域</b> - 多个国家使用\n"
+	text += "🌍 <b>全球</b> - 全球通用\n\n"
+	text += "💡 提示：您也可以使用 /products 国家代码 搜索特定国家的产品"
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🏠 本地产品", "products_local"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🌏 区域产品", "products_regional"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🌍 全球产品", "products_global"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 返回主菜单", "main_menu"),
+		),
+	)
+
+	return &MenuResponse{
+		Text:      text,
+		Keyboard:  keyboard,
+		ParseMode: "HTML",
+		EditMode:  true,
+	}, nil
+}
+
+// getOrdersMenu 获取订单菜单
+func (m *menuService) getOrdersMenu(userID int64) (*MenuResponse, error) {
+	text := "📦 <b>我的订单</b>\n\n功能开发中，敬请期待..."
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 返回主菜单", "main_menu"),
 		),
 	)
 
