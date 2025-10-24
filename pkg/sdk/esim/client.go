@@ -57,13 +57,14 @@ func NewClient(config Config) *Client {
 	}
 }
 
-// getTimestamp 获取时间戳（考虑时区偏移）
+// getTimestamp 获取时间戳（毫秒）
 func (c *Client) getTimestamp() string {
 	now := time.Now().UTC()
 	if c.timezoneOffset != 0 {
 		now = now.Add(time.Duration(c.timezoneOffset) * time.Hour)
 	}
-	return strconv.FormatInt(now.Unix(), 10)
+	// 返回毫秒时间戳
+	return strconv.FormatInt(now.UnixMilli(), 10)
 }
 
 // generateSignature 生成API签名
@@ -104,13 +105,16 @@ func (c *Client) request(method, path string, data interface{}) (map[string]inte
 	signature := c.generateSignature(method, path, bodyStr, timestamp, nonce)
 
 	// 调试日志
-	fmt.Printf("[DEBUG] API Request:\n")
+	fmt.Printf("\n[DEBUG] eSIM API Request:\n")
+	fmt.Printf("  URL: %s%s\n", c.baseURL, path)
 	fmt.Printf("  Method: %s\n", method)
-	fmt.Printf("  Path: %s\n", path)
-	fmt.Printf("  Timestamp: %s\n", timestamp)
+	fmt.Printf("  Timestamp: %s (毫秒)\n", timestamp)
 	fmt.Printf("  Nonce: %s\n", nonce)
 	fmt.Printf("  Body: %s\n", bodyStr)
+	fmt.Printf("  SignString: %s%s%s%s%s\n", method, path, bodyStr, timestamp, nonce)
+	fmt.Printf("  API Key: %s\n", c.apiKey)
 	fmt.Printf("  Signature: %s\n", signature)
+	fmt.Printf("  Timezone Offset: %d hours\n\n", c.timezoneOffset)
 
 	reqURL := c.baseURL + path
 	req, err := http.NewRequest(method, reqURL, bodyReader)
@@ -174,14 +178,16 @@ func (c *Client) requestTyped(method, path string, data interface{}, result inte
 	signature := c.generateSignature(method, path, bodyStr, timestamp, nonce)
 
 	// 调试日志
-	fmt.Printf("[DEBUG] API Request (Typed):\n")
+	fmt.Printf("\n[DEBUG] eSIM API Request:\n")
+	fmt.Printf("  URL: %s%s\n", c.baseURL, path)
 	fmt.Printf("  Method: %s\n", method)
-	fmt.Printf("  Path: %s\n", path)
-	fmt.Printf("  Timestamp: %s\n", timestamp)
+	fmt.Printf("  Timestamp: %s (毫秒)\n", timestamp)
 	fmt.Printf("  Nonce: %s\n", nonce)
 	fmt.Printf("  Body: %s\n", bodyStr)
 	fmt.Printf("  SignString: %s%s%s%s%s\n", method, path, bodyStr, timestamp, nonce)
+	fmt.Printf("  API Key: %s\n", c.apiKey)
 	fmt.Printf("  Signature: %s\n", signature)
+	fmt.Printf("  Timezone Offset: %d hours\n\n", c.timezoneOffset)
 
 	reqURL := c.baseURL + path
 	req, err := http.NewRequest(method, reqURL, bodyReader)
