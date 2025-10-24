@@ -160,6 +160,13 @@ func (h *ProductsHandler) showProducts(ctx context.Context, message *tgbotapi.Me
 		return h.sendError(message.Chat.ID, "暂无产品")
 	}
 
+	// 调试：打印第一个产品的详细信息
+	if len(resp.Message.Products) > 0 {
+		p := resp.Message.Products[0]
+		h.logger.Debug("First product details: ID=%d, Name=%s, DataSize=%d, ValidDays=%d, RetailPrice=%.2f, AgentPrice=%.2f, Countries=%d",
+			p.ID, p.Name, p.DataSize, p.ValidDays, p.RetailPrice, p.AgentPrice, len(p.Countries))
+	}
+
 	// 构建消息文本
 	text := h.buildProductListText(productType, resp.Message.Products, resp.Message.Pagination)
 
@@ -179,45 +186,93 @@ func (h *ProductsHandler) buildProductListText(productType esim.ProductType, pro
 	}
 
 	text := fmt.Sprintf("*%s*\n\n", typeText[productType])
-	text += fmt.Sprintf("📄 第 %d/%d 页 (共 %d 个产品)\n\n",
+	text += fmt.Sprintf("📄 第 %d/%d 页 (共 %d 个产品)\n",
 		pagination.Page, pagination.TotalPages, pagination.Total)
+	text += "━━━━━━━━━━━━━━━━━━\n\n"
 
 	for i, product := range products {
-		text += fmt.Sprintf("*%d. %s*\n", i+1, product.Name)
+		// 产品标题
+		text += fmt.Sprintf("*%d\\. %s*\n", i+1, escapeMarkdown(product.Name))
 
-		// 国家信息
+		// 国家信息（简化显示）
 		if len(product.Countries) > 0 {
-			countries := make([]string, 0, 3)
-			for j, country := range product.Countries {
-				if j >= 3 {
-					countries = append(countries, fmt.Sprintf("等%d国", len(product.Countries)))
-					break
+			if len(product.Countries) == 1 {
+				text += fmt.Sprintf("🗺️ %s\n", product.Countries[0].CN)
+			} else if len(product.Countries) <= 3 {
+				countryNames := make([]string, len(product.Countries))
+				for j, country := range product.Countries {
+					countryNames[j] = country.CN
 				}
-				countries = append(countries, country.CN)
+				text += fmt.Sprintf("🗺️ %s\n", strings.Join(countryNames, "、"))
+			} else {
+				text += fmt.Sprintf("🗺️ %s、%s 等%d国\n",
+					product.Countries[0].CN, product.Countries[1].CN, len(product.Countries))
 			}
-			text += fmt.Sprintf("   🗺️ %s\n", strings.Join(countries, ", "))
 		}
 
-		text += fmt.Sprintf("   📊 %s | ⏰ %d天\n",
+		// 流量和有效期
+		text += fmt.Sprintf("📊 %s  ⏰ %d天\n",
 			formatDataSize(product.DataSize), product.ValidDays)
-		text += fmt.Sprintf("   💰 $%.2f | 💵 $%.2f\n\n",
-			product.RetailPrice, product.AgentPrice)
+
+		// 价格
+		text += fmt.Sprintf("💵 代理价: *$%.2f*  💰 零售价: $%.2f\n",
+			product.AgentPrice, product.RetailPrice)
+
+		text += "\n"
 	}
 
 	return text
+}
+
+// escapeMarkdown 转义 Markdown 特殊字符
+func escapeMarkdown(text string) string {
+	replacer := strings.NewReplacer(
+		"_", "\\_",
+		"*", "\\*",
+		"[", "\\[",
+		"]", "\\]",
+		"(", "\\(",
+		")", "\\)",
+		"~", "\\~",
+		"`", "\\`",
+		">", "\\>",
+		"#", "\\#",
+		"+", "\\+",
+		"-", "\\-",
+		"=", "\\=",
+		"|", "\\|",
+		"{", "\\{",
+		"}", "\\}",
+		"!", "\\!",
+	)
+	return replacer.Replace(text)
 }
 
 // buildProductListKeyboard 构建产品列表键盘
 func (h *ProductsHandler) buildProductListKeyboard(products []esim.Product, productType esim.ProductType, pagination esim.Pagination) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
 
-	// 产品按钮
-	for i, product := range products {
-		btn := tgbotapi.NewInlineKeyboardButtonData(
-			fmt.Sprintf("%d. 查看详情", i+1),
-			fmt.Sprintf("product_detail:%d", product.ID),
+	// 产品按钮 - 每行2个
+	for i := 0; i < len(products); i += 2 {
+		var row []tgbotapi.InlineKeyboardButton
+
+		// 第一个按钮
+		btn1 := tgbotapi.NewInlineKeyboardButtonData(
+			fmt.Sprintf("%d. 详情", i+1),
+			fmt.Sprintf("product_detail:%d", products[i].ID),
 		)
-		rows = append(rows, tgbotapi.NewInlineKeyboardRow(btn))
+		row = append(row, btn1)
+
+		// 第二个按钮（如果存在）
+		if i+1 < len(products) {
+			btn2 := tgbotapi.NewInlineKeyboardButtonData(
+				fmt.Sprintf("%d. 详情", i+2),
+				fmt.Sprintf("product_detail:%d", products[i+1].ID),
+			)
+			row = append(row, btn2)
+		}
+
+		rows = append(rows, row)
 	}
 
 	// 分页按钮
@@ -232,13 +287,13 @@ func (h *ProductsHandler) buildProductListKeyboard(products []esim.Product, prod
 		}
 
 		pageRow = append(pageRow, tgbotapi.NewInlineKeyboardButtonData(
-			fmt.Sprintf("%d/%d", pagination.Page, pagination.TotalPages),
+			fmt.Sprintf("📄 %d/%d", pagination.Page, pagination.TotalPages),
 			"noop",
 		))
 
 		if pagination.Page < pagination.TotalPages {
 			pageRow = append(pageRow, tgbotapi.NewInlineKeyboardButtonData(
-				"➡️ 下一页",
+				"下一页 ➡️",
 				fmt.Sprintf("products_page:%s:%d", productType, pagination.Page+1),
 			))
 		}
@@ -304,24 +359,44 @@ func (h *ProductsHandler) searchProductsByCountry(ctx context.Context, chatID in
 	}
 
 	text := fmt.Sprintf("🔍 *搜索结果: %s*\n\n", countryCode)
-	text += fmt.Sprintf("找到 %d 个产品\n\n", len(resp.Message.Products))
+	text += fmt.Sprintf("找到 %d 个产品\n", len(resp.Message.Products))
+	text += "━━━━━━━━━━━━━━━━━━\n\n"
 
 	for i, product := range resp.Message.Products {
-		text += fmt.Sprintf("*%d. %s*\n", i+1, product.Name)
-		text += fmt.Sprintf("   📊 %s | ⏰ %d天\n",
+		text += fmt.Sprintf("*%d\\. %s*\n", i+1, escapeMarkdown(product.Name))
+		text += fmt.Sprintf("📊 %s  ⏰ %d天\n",
 			formatDataSize(product.DataSize), product.ValidDays)
-		text += fmt.Sprintf("   💰 $%.2f | 💵 $%.2f\n\n",
-			product.RetailPrice, product.AgentPrice)
+		text += fmt.Sprintf("💵 代理价: *$%.2f*  💰 零售价: $%.2f\n\n",
+			product.AgentPrice, product.RetailPrice)
 	}
 
 	var rows [][]tgbotapi.InlineKeyboardButton
-	for i, product := range resp.Message.Products {
-		btn := tgbotapi.NewInlineKeyboardButtonData(
-			fmt.Sprintf("%d. 查看详情", i+1),
-			fmt.Sprintf("product_detail:%d", product.ID),
+
+	// 每行2个按钮
+	for i := 0; i < len(resp.Message.Products); i += 2 {
+		var row []tgbotapi.InlineKeyboardButton
+
+		btn1 := tgbotapi.NewInlineKeyboardButtonData(
+			fmt.Sprintf("%d. 详情", i+1),
+			fmt.Sprintf("product_detail:%d", resp.Message.Products[i].ID),
 		)
-		rows = append(rows, tgbotapi.NewInlineKeyboardRow(btn))
+		row = append(row, btn1)
+
+		if i+1 < len(resp.Message.Products) {
+			btn2 := tgbotapi.NewInlineKeyboardButtonData(
+				fmt.Sprintf("%d. 详情", i+2),
+				fmt.Sprintf("product_detail:%d", resp.Message.Products[i+1].ID),
+			)
+			row = append(row, btn2)
+		}
+
+		rows = append(rows, row)
 	}
+
+	// 添加返回按钮
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("🔙 返回", "products_back"),
+	))
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(rows...)
 

@@ -213,6 +213,9 @@ func (c *Client) requestTyped(method, path string, data interface{}, result inte
 		return fmt.Errorf("read response: %w", err)
 	}
 
+	fmt.Printf("[DEBUG] Response Status: %d\n", resp.StatusCode)
+	fmt.Printf("[DEBUG] Response Body (first 500 chars): %s\n\n", string(respBody[:min(500, len(respBody))]))
+
 	if resp.StatusCode >= 400 {
 		var errResp map[string]interface{}
 		if err := json.Unmarshal(respBody, &errResp); err == nil {
@@ -224,9 +227,12 @@ func (c *Client) requestTyped(method, path string, data interface{}, result inte
 	}
 
 	if err := json.Unmarshal(respBody, result); err != nil {
+		fmt.Printf("[ERROR] Failed to unmarshal response: %v\n", err)
+		fmt.Printf("[ERROR] Response body: %s\n", string(respBody))
 		return fmt.Errorf("unmarshal response: %w", err)
 	}
 
+	fmt.Printf("[DEBUG] Response parsed successfully\n\n")
 	return nil
 }
 
@@ -248,4 +254,12 @@ func buildQueryString(params map[string]interface{}) string {
 		return "?" + query
 	}
 	return ""
+}
+
+// min 返回两个整数中的较小值
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
