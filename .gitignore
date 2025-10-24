@@ -34,10 +34,10 @@ ehthumbs.db
 Thumbs.db
 
 # Application specific
-config/config.json
+#config/config.json
 *.log
 *.db
-bot
+#bot
 main-*
 
 # Environment files

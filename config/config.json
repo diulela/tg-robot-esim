@@ -1,0 +1,41 @@
+{
+  "telegram": {
+    "bot_token": "8402119481:AAEESFJ3MHnPi_7oPKbaoKkGnkHhX9-L1Q8",
+    "webhook_url": "",
+    "timeout": 60000000000,
+    "debug": false
+  },
+  "database": {
+    "type": "sqlite",
+    "dsn": "bot.db",
+    "max_connections": 10,
+    "max_idle_conns": 5,
+    "conn_max_life": "1h"
+  },
+  "blockchain": {
+    "tron_api_key": "15f771d4-50db-4bb4-ac68-0db28439a7a0",
+    "tron_endpoint": "https://api.trongrid.io",
+    "monitor_interval": 30000000000,
+    "required_confirmations": 5,
+    "max_block_delay": 100,
+    "wallet_address": "TXCL64V6bqsCSsb7iS8gEYjLF6v45YvjXr"
+  },
+  "logging": {
+    "level": "info",
+    "file": "bot.log",
+    "max_size": 100,
+    "max_age": 30,
+    "compress": true
+  },
+  "server": {
+    "port": 8080,
+    "read_timeout": 30000000000,
+    "write_timeout": 30000000000,
+    "idle_timeout": 120000000000
+  },
+  "esim_sdk": {
+    "api_key": "ak_4bfa7296d37d5cf2358b7de013935088fc798b88",
+    "api_secret": "245597c23fc6f69e6b69785d2d7112172efb2f5c4d85d52cc9b92974c4129958",
+    "endpoint" : "https://api.xigrocoltd.com"
+  }
+}
