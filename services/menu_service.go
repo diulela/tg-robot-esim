@@ -76,19 +76,28 @@ func (m *menuService) HandleMenuAction(ctx context.Context, userID int64, action
 	// 获取用户上下文
 	userContext, err := m.sessionService.GetUserContext(userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user context: %w", err)
+		m.logger.Warn("Failed to get user context: %v, creating new context", err)
+		userContext = &UserContext{
+			UserID:     userID,
+			Parameters: make(map[string]interface{}),
+		}
 	}
 
 	switch action {
 	case "main_menu":
+		m.logger.Debug("Routing to main menu")
 		return m.GetMainMenu(userID)
 	case "help":
+		m.logger.Debug("Routing to help menu")
 		return m.getHelpMenu(userID)
 	case "settings":
+		m.logger.Debug("Routing to settings menu")
 		return m.getSettingsMenu(userID)
 	case "back":
+		m.logger.Debug("Routing to back navigation")
 		return m.NavigateBack(userID)
 	default:
+		m.logger.Debug("Routing to custom action: %s", action)
 		return m.handleCustomAction(ctx, userID, userContext, action)
 	}
 }
@@ -405,9 +414,11 @@ func (m *menuService) getNotificationSettings(userID int64) (*MenuResponse, erro
 
 // getProductsMenu 获取产品菜单
 func (m *menuService) getProductsMenu(userID int64) (*MenuResponse, error) {
+	m.logger.Debug("Getting products menu for user %d", userID)
+
 	text := "📱 <b>eSIM 产品商城</b>\n\n"
 	text += "请选择产品类型：\n\n"
-	text += "🏠 <b>本地</b> - 单个国家使用\n"
+	text += "� <b>全本地</b> - 单个国家使用\n"
 	text += "🌏 <b>区域</b> - 多个国家使用\n"
 	text += "🌍 <b>全球</b> - 全球通用\n\n"
 	text += "💡 提示：您也可以使用 /products 国家代码 搜索特定国家的产品"
@@ -426,6 +437,8 @@ func (m *menuService) getProductsMenu(userID int64) (*MenuResponse, error) {
 			tgbotapi.NewInlineKeyboardButtonData("🔙 返回主菜单", "main_menu"),
 		),
 	)
+
+	m.logger.Debug("Products menu created with %d keyboard rows", len(keyboard.InlineKeyboard))
 
 	return &MenuResponse{
 		Text:      text,

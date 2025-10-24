@@ -39,13 +39,17 @@ func (h *CallbackQueryHandler) HandleCallback(ctx context.Context, callback *tgb
 
 	// 解析回调数据
 	action, params := h.parseCallbackData(data)
+	h.logger.Debug("Parsed action: %s, params: %v", action, params)
 
 	// 处理菜单操作
 	response, err := h.menuService.HandleMenuAction(ctx, userID, action)
 	if err != nil {
-		h.logger.Error("Failed to handle menu action: %v", err)
+		h.logger.Error("Failed to handle menu action '%s': %v", action, err)
 		return h.sendErrorMessage(callback.Message.Chat.ID, "处理请求时发生错误")
 	}
+
+	h.logger.Debug("Menu response - Text length: %d, EditMode: %v, ParseMode: %s",
+		len(response.Text), response.EditMode, response.ParseMode)
 
 	// 发送或编辑消息
 	return h.sendMenuResponse(callback.Message, response, params)
@@ -96,6 +100,8 @@ func (h *CallbackQueryHandler) sendMenuResponse(originalMessage *tgbotapi.Messag
 
 // editMessage 编辑消息
 func (h *CallbackQueryHandler) editMessage(originalMessage *tgbotapi.Message, response *services.MenuResponse) error {
+	h.logger.Debug("Attempting to edit message %d in chat %d", originalMessage.MessageID, originalMessage.Chat.ID)
+
 	editMsg := tgbotapi.NewEditMessageText(
 		originalMessage.Chat.ID,
 		originalMessage.MessageID,
@@ -109,18 +115,24 @@ func (h *CallbackQueryHandler) editMessage(originalMessage *tgbotapi.Message, re
 	if response.Keyboard != nil {
 		if keyboard, ok := response.Keyboard.(tgbotapi.InlineKeyboardMarkup); ok {
 			editMsg.ReplyMarkup = &keyboard
+			h.logger.Debug("Setting keyboard with %d rows", len(keyboard.InlineKeyboard))
 		}
 	}
 
 	_, err := h.bot.Send(editMsg)
 
 	// 忽略 "message is not modified" 错误
-	if err != nil && strings.Contains(err.Error(), "message is not modified") {
-		h.logger.Debug("Message content unchanged, skipping edit")
-		return nil
+	if err != nil {
+		if strings.Contains(err.Error(), "message is not modified") {
+			h.logger.Debug("Message content unchanged, skipping edit (this is normal)")
+			return nil
+		}
+		h.logger.Error("Failed to edit message: %v", err)
+		return err
 	}
 
-	return err
+	h.logger.Debug("Message edited successfully")
+	return nil
 }
 
 // sendNewMessage 发送新消息
