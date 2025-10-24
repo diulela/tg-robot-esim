@@ -2,7 +2,7 @@
 
 ## 项目简介
 
-Telegram Robot Sim 是一个基于 Go 语言开发的 Telegram 机器人核心系统，专注于提供智能对话处理、交互式菜单、区块链交易监控、sim手机卡销售功能。
+Telegram Robot ESim 是一个基于 Go 语言开发的 Telegram 机器人核心系统，专注于提供智能对话处理、交互式菜单、区块链交易监控、esim手机卡销售功能。
 
 ## 核心功能
 

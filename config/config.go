@@ -14,6 +14,7 @@ type Config struct {
 	Blockchain BlockchainConfig `json:"blockchain"`
 	Logging    LoggingConfig    `json:"logging"`
 	Server     ServerConfig     `json:"server"`
+	EsimSDK    EsimSDKConfig    `json:"esim_sdk"`
 }
 
 // TelegramConfig Telegram 相关配置
@@ -58,6 +59,13 @@ type ServerConfig struct {
 	ReadTimeout  time.Duration `json:"read_timeout"`
 	WriteTimeout time.Duration `json:"write_timeout"`
 	IdleTimeout  time.Duration `json:"idle_timeout"`
+}
+
+// EsimSDKConfig eSIM SDK 配置
+type EsimSDKConfig struct {
+	APIKey    string `json:"api_key"`
+	APISecret string `json:"api_secret"`
+	BaseURL   string `json:"base_url"`
 }
 
 // LoadConfig 从文件加载配置
@@ -124,6 +132,11 @@ func CreateDefaultConfig(configPath string) error {
 			WriteTimeout: 30 * time.Second,
 			IdleTimeout:  120 * time.Second,
 		},
+		EsimSDK: EsimSDKConfig{
+			APIKey:    "${ESIM_API_KEY}",
+			APISecret: "${ESIM_API_SECRET}",
+			BaseURL:   "https://api.your-domain.com",
+		},
 	}
 
 	data, err := json.MarshalIndent(defaultConfig, "", "  ")
@@ -159,6 +172,18 @@ func applyEnvironmentOverrides(config *Config) {
 
 	if logLevel := os.Getenv("LOG_LEVEL"); logLevel != "" {
 		config.Logging.Level = logLevel
+	}
+
+	if esimAPIKey := os.Getenv("ESIM_API_KEY"); esimAPIKey != "" {
+		config.EsimSDK.APIKey = esimAPIKey
+	}
+
+	if esimAPISecret := os.Getenv("ESIM_API_SECRET"); esimAPISecret != "" {
+		config.EsimSDK.APISecret = esimAPISecret
+	}
+
+	if esimBaseURL := os.Getenv("ESIM_BASE_URL"); esimBaseURL != "" {
+		config.EsimSDK.BaseURL = esimBaseURL
 	}
 }
 

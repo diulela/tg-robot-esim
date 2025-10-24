@@ -147,18 +147,25 @@ func (m *menuService) initializeDefaultMenus() {
 		Description: "请选择您需要的功能：",
 		Items: []MenuItem{
 			{
+				ID:          "products",
+				Text:        "🛍️ 浏览产品",
+				Description: "浏览和购买 eSIM 产品",
+				Icon:        "🛍️",
+				Action:      "products_back",
+			},
+			{
+				ID:          "orders",
+				Text:        "📦 我的订单",
+				Description: "查看订单和 eSIM 信息",
+				Icon:        "📦",
+				Action:      "my_orders",
+			},
+			{
 				ID:          "wallet",
 				Text:        "💰 钱包管理",
 				Description: "查看余额和交易记录",
 				Icon:        "💰",
 				Action:      "wallet_menu",
-			},
-			{
-				ID:          "transactions",
-				Text:        "📊 交易监控",
-				Description: "监控区块链交易状态",
-				Icon:        "📊",
-				Action:      "transactions_menu",
 			},
 			{
 				ID:          "settings",
