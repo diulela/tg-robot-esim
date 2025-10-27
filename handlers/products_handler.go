@@ -102,17 +102,29 @@ func (h *ProductsHandler) GetDescription() string {
 	return "浏览 eSIM 产品"
 }
 
-// showAsiaProducts 显示亚洲产品列表（编辑消息）- 多消息卡片模式
+// showAsiaProducts 显示亚洲产品列表（编辑消息）
 func (h *ProductsHandler) showAsiaProducts(ctx context.Context, message *tgbotapi.Message, page int) error {
-	// 删除旧消息
-	deleteMsg := tgbotapi.NewDeleteMessage(message.Chat.ID, message.MessageID)
-	h.bot.Send(deleteMsg)
+	products, total, err := h.getAsiaProducts(ctx, page, 5)
+	if err != nil {
+		h.logger.Error("Failed to get Asia products: %v", err)
+		return h.sendError(message.Chat.ID, "获取产品列表失败")
+	}
 
-	// 使用新消息方式显示
-	return h.showAsiaProductsNew(ctx, message.Chat.ID, page)
+	if len(products) == 0 {
+		return h.sendError(message.Chat.ID, "暂无产品")
+	}
+
+	// 构建消息文本
+	text := h.buildAsiaProductListText(products, page, total, 5)
+
+	// 构建键盘
+	keyboard := h.buildAsiaProductKeyboard(products, page, total, 5)
+
+	// 编辑消息
+	return h.editOrSendMessage(message, text, keyboard)
 }
 
-// showAsiaProductsNew 显示亚洲产品列表（新消息）- 每个产品一条消息
+// showAsiaProductsNew 显示亚洲产品列表（新消息）- 卡片式布局
 func (h *ProductsHandler) showAsiaProductsNew(ctx context.Context, chatID int64, page int) error {
 	products, total, err := h.getAsiaProducts(ctx, page, 5)
 	if err != nil {
@@ -124,40 +136,18 @@ func (h *ProductsHandler) showAsiaProductsNew(ctx context.Context, chatID int64,
 		return h.sendError(chatID, "暂无产品")
 	}
 
-	totalPages := int((total + 4) / 5)
+	// 构建卡片式产品列表
+	text := h.buildAsiaProductCardsText(products, page, total, 5)
 
-	// 1. 发送标题消息
-	headerText := h.buildProductListHeader(page, totalPages, int(total))
-	headerMsg := tgbotapi.NewMessage(chatID, headerText)
-	headerMsg.ParseMode = "HTML"
-	if _, err := h.bot.Send(headerMsg); err != nil {
-		h.logger.Error("Failed to send header: %v", err)
-		return err
-	}
+	// 构建每个产品对应的按钮键盘
+	keyboard := h.buildAsiaProductCardsKeyboard(products, page, total, 5)
 
-	// 2. 为每个产品发送独立的卡片消息（带按钮）
-	for i, product := range products {
-		cardText := h.buildSingleProductCard(product, i+1)
-		cardKeyboard := h.buildSingleProductKeyboard(product.ID)
+	// 发送新消息
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = "HTML"
+	msg.ReplyMarkup = keyboard
 
-		cardMsg := tgbotapi.NewMessage(chatID, cardText)
-		cardMsg.ParseMode = "HTML"
-		cardMsg.ReplyMarkup = cardKeyboard
-
-		if _, err := h.bot.Send(cardMsg); err != nil {
-			h.logger.Error("Failed to send product card %d: %v", i+1, err)
-		}
-	}
-
-	// 3. 发送分页导航消息
-	navText := "<i>💡 点击产品卡片上的按钮查看详情或购买</i>"
-	navKeyboard := h.buildProductListNavigation(page, totalPages)
-
-	navMsg := tgbotapi.NewMessage(chatID, navText)
-	navMsg.ParseMode = "HTML"
-	navMsg.ReplyMarkup = navKeyboard
-
-	_, err = h.bot.Send(navMsg)
+	_, err = h.bot.Send(msg)
 	return err
 }
 
@@ -585,48 +575,66 @@ func (h *ProductsHandler) buildAsiaProductListText(products []*repository.Produc
 	return text
 }
 
-// buildProductListHeader 构建产品列表标题
-func (h *ProductsHandler) buildProductListHeader(page, totalPages, total int) string {
+// buildAsiaProductCardsText 构建卡片式产品列表文本（使用 HTML 格式）
+func (h *ProductsHandler) buildAsiaProductCardsText(products []*repository.ProductModel, page int, total int64, limit int) string {
+	totalPages := int((total + int64(limit) - 1) / int64(limit))
+
+	// 标题
 	text := "<b>🌏 亚洲区域产品</b>\n\n"
 	text += fmt.Sprintf("📄 第 <b>%d</b>/<b>%d</b> 页 (共 <b>%d</b> 个产品)\n",
 		page, totalPages, total)
-	text += "━━━━━━━━━━━━━━━━━━"
+	text += "━━━━━━━━━━━━━━━━━━\n\n"
+
+	// 为每个产品创建卡片
+	for i, product := range products {
+		// 产品卡片 - 使用 blockquote 创建视觉分隔
+		text += "<blockquote expandable>"
+
+		// 卡片编号和产品名称
+		text += fmt.Sprintf("<b>📱 产品 %d：%s</b>\n", i+1, escapeHTML(product.Name))
+		text += "━━━━━━━━━━━━━━\n\n"
+
+		// 产品规格信息
+		text += fmt.Sprintf("📊 <b>流量：</b><code>%s</code>\n", formatDataSize(product.DataSize))
+		text += fmt.Sprintf("⏰ <b>有效期：</b><code>%d天</code>\n\n", product.ValidDays)
+
+		// 价格信息 - 突出显示
+		text += fmt.Sprintf("💰 <b>价格：</b><u><b>%.2f USDT</b></u>\n\n", product.Price)
+
+		// 提示用户点击下方对应按钮
+		text += fmt.Sprintf("<i>👇 点击下方「产品%d」按钮查看详情或购买</i>", i+1)
+
+		text += "</blockquote>\n\n"
+	}
+
 	return text
 }
 
-// buildSingleProductCard 构建单个产品卡片（独立消息）
-func (h *ProductsHandler) buildSingleProductCard(product *repository.ProductModel, index int) string {
-	text := "<blockquote expandable>"
-
-	// 产品标题
-	text += fmt.Sprintf("<b>📱 %s</b>\n", escapeHTML(product.Name))
-	text += "━━━━━━━━━━━━━━━━\n\n"
-
-	// 产品规格
-	text += fmt.Sprintf("📊 <b>流量：</b><code>%s</code>\n", formatDataSize(product.DataSize))
-	text += fmt.Sprintf("⏰ <b>有效期：</b><code>%d天</code>\n\n", product.ValidDays)
-
-	// 价格 - 突出显示
-	text += fmt.Sprintf("💰 <b>价格：</b><u><b>%.2f USDT</b></u>", product.Price)
-
-	text += "</blockquote>"
-
-	return text
-}
-
-// buildSingleProductKeyboard 构建单个产品的按钮
-func (h *ProductsHandler) buildSingleProductKeyboard(productID int) tgbotapi.InlineKeyboardMarkup {
-	return tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📖 查看详情", fmt.Sprintf("product_detail:%d", productID)),
-			tgbotapi.NewInlineKeyboardButtonData("🛒 立即购买", fmt.Sprintf("product_buy:%d", productID)),
-		),
-	)
-}
-
-// buildProductListNavigation 构建产品列表导航按钮
-func (h *ProductsHandler) buildProductListNavigation(page, totalPages int) tgbotapi.InlineKeyboardMarkup {
+// buildAsiaProductCardsKeyboard 构建卡片式产品键盘（每个产品一行按钮）
+func (h *ProductsHandler) buildAsiaProductCardsKeyboard(products []*repository.ProductModel, page int, total int64, limit int) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
+
+	totalPages := int((total + int64(limit) - 1) / int64(limit))
+
+	// 为每个产品创建一行按钮（详情 + 购买）
+	for i, product := range products {
+		row := []tgbotapi.InlineKeyboardButton{
+			tgbotapi.NewInlineKeyboardButtonData(
+				fmt.Sprintf("📖 产品%d 详情", i+1),
+				fmt.Sprintf("product_detail:%d", product.ID),
+			),
+			tgbotapi.NewInlineKeyboardButtonData(
+				fmt.Sprintf("🛒 产品%d 购买", i+1),
+				fmt.Sprintf("product_buy:%d", product.ID),
+			),
+		}
+		rows = append(rows, row)
+	}
+
+	// 添加分隔线（空行）
+	if len(products) > 0 {
+		rows = append(rows, []tgbotapi.InlineKeyboardButton{})
+	}
 
 	// 分页按钮
 	if totalPages > 1 {
