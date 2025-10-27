@@ -156,6 +156,7 @@ func main() {
 			telegramBot.GetAPI(),
 			esimService,
 			db.GetProductRepository(),
+			db.GetProductDetailRepository(),
 			appLogger,
 		)
 		if err := registry.RegisterCommandHandler(productsHandler); err != nil {

@@ -20,12 +20,13 @@ import (
 
 // Database 数据库管理器
 type Database struct {
-	db              *gorm.DB
-	config          *config.DatabaseConfig
-	userRepo        repository.UserRepository
-	sessionRepo     repository.UserSessionRepository
-	transactionRepo repository.TransactionRepository
-	productRepo     repository.ProductRepository
+	db                *gorm.DB
+	config            *config.DatabaseConfig
+	userRepo          repository.UserRepository
+	sessionRepo       repository.UserSessionRepository
+	transactionRepo   repository.TransactionRepository
+	productRepo       repository.ProductRepository
+	productDetailRepo repository.ProductDetailRepository
 }
 
 // NewDatabase 创建数据库管理器
@@ -92,6 +93,7 @@ func NewDatabase(cfg *config.DatabaseConfig) (*Database, error) {
 	database.sessionRepo = repository.NewUserSessionRepository(db)
 	database.transactionRepo = repository.NewTransactionRepository(db)
 	database.productRepo = repository.NewProductRepository(db)
+	database.productDetailRepo = repository.NewProductDetailRepository(db)
 
 	return database, nil
 }
@@ -108,6 +110,7 @@ func (d *Database) AutoMigrate() error {
 		&models.UserSession{},
 		&models.Transaction{},
 		&models.Product{},
+		&models.ProductDetail{},
 	)
 }
 
@@ -147,6 +150,11 @@ func (d *Database) GetTransactionRepository() repository.TransactionRepository {
 // GetProductRepository 获取产品仓库
 func (d *Database) GetProductRepository() repository.ProductRepository {
 	return d.productRepo
+}
+
+// GetProductDetailRepository 获取产品详情仓库
+func (d *Database) GetProductDetailRepository() repository.ProductDetailRepository {
+	return d.productDetailRepo
 }
 
 // Transaction 执行数据库事务

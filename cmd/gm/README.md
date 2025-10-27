@@ -5,6 +5,7 @@
 ## 功能
 
 - **产品同步**: 从 eSIM API 同步产品数据到本地数据库
+- **产品详情同步**: 从 eSIM API 同步产品详情到详情表
 - **产品查询**: 查看本地数据库中的产品信息
 
 ## 编译
@@ -53,7 +54,28 @@ gm -cmd sync-products -limit 10
 gm -cmd sync-products -config /path/to/config.json
 ```
 
-### 2. 查看本地产品
+### 2. 同步产品详情
+
+从产品表中读取产品，然后通过 API 获取每个产品的详情并保存到详情表：
+
+```bash
+# 同步所有产品的详情
+gm -cmd sync-product-details
+```
+
+限制同步数量（用于测试）：
+
+```bash
+# 只同步前 5 个产品的详情
+gm -cmd sync-product-details -limit 5
+```
+
+**注意**: 此命令会遍历产品表中的所有产品，逐个调用 API 获取详情，请确保：
+- 已经先执行 `sync-products` 同步产品列表
+- API 配置正确
+- 网络连接正常
+
+### 3. 查看本地产品
 
 列出所有本地产品：
 
@@ -67,7 +89,7 @@ gm -cmd list-products
 gm -cmd list-products -type local
 ```
 
-### 3. 帮助信息
+### 4. 帮助信息
 
 ```bash
 gm -cmd help
@@ -85,13 +107,19 @@ gm -cmd help
 - `-type <type>`: 产品类型（`local`, `regional`, `global`）
 - `-limit <n>`: 限制同步数量（0 表示全部）
 
+### sync-product-details 参数
+
+- `-limit <n>`: 限制同步数量（0 表示全部）
+
 ### list-products 参数
 
 - `-type <type>`: 产品类型过滤
 
 ## 数据库表结构
 
-产品数据存储在 `products` 表中，包含以下字段：
+### products 表
+
+产品基本数据存储在 `products` 表中，包含以下字段：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -119,11 +147,35 @@ gm -cmd help
 | created_at | timestamp | 创建时间 |
 | updated_at | timestamp | 更新时间 |
 
+### product_details 表
+
+产品详细信息存储在 `product_details` 表中，包含以下字段：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | int | 主键 |
+| product_id | int | 关联产品表ID（唯一） |
+| third_party_id | int | API返回的产品ID |
+| name | string | 产品名称 |
+| type | string | 产品类型 |
+| countries | text | 支持的国家（JSON数组） |
+| data_size | string | 流量大小（如 "5GB"） |
+| valid_days | int | 有效天数 |
+| price | decimal | 价格 |
+| cost_price | decimal | 成本价 |
+| description | text | 产品描述 |
+| features | text | 产品特性（JSON数组） |
+| status | string | 状态 |
+| api_created_at | string | API返回的创建时间 |
+| synced_at | timestamp | 同步时间 |
+| created_at | timestamp | 创建时间 |
+| updated_at | timestamp | 更新时间 |
+
 ## 使用场景
 
 ### 场景 1: 首次部署
 
-首次部署时，需要同步所有产品数据：
+首次部署时，需要同步所有产品数据和详情：
 
 ```bash
 # 1. 确保配置文件正确
@@ -132,7 +184,10 @@ cat config/config.json
 # 2. 同步所有产品
 gm -cmd sync-products
 
-# 3. 验证同步结果
+# 3. 同步产品详情
+gm -cmd sync-product-details
+
+# 4. 验证同步结果
 gm -cmd list-products
 ```
 

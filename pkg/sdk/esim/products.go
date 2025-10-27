@@ -71,11 +71,25 @@ type ProductListMessage struct {
 
 // ProductDetailResponse 产品详情响应
 type ProductDetailResponse struct {
-	Success   bool    `json:"success"`
-	Code      int     `json:"code"`
-	Message   Product `json:"message"` // 注意：这里 message 字段包含产品数据
-	Data      string  `json:"data"`
-	Timestamp string  `json:"timestamp"`
+	Success bool          `json:"success"`
+	Message string        `json:"message"` // 消息文本，如 "获取产品详情成功"
+	Data    ProductDetail `json:"data"`    // 产品详情数据
+}
+
+// ProductDetail 产品详情（简化版，基于API实际返回）
+type ProductDetail struct {
+	ID          int      `json:"id"`          // 产品ID
+	Name        string   `json:"name"`        // 产品名称
+	Type        string   `json:"type"`        // 产品类型：local, regional, global
+	Countries   []string `json:"countries"`   // 国家代码列表
+	DataSize    string   `json:"dataSize"`    // 流量大小，如 "5GB"
+	ValidDays   int      `json:"validDays"`   // 有效天数
+	Price       float64  `json:"price"`       // 价格
+	CostPrice   float64  `json:"costPrice"`   // 成本价
+	Description string   `json:"description"` // 产品描述
+	Features    []string `json:"features"`    // 产品特性列表
+	Status      string   `json:"status"`      // 状态：active, inactive
+	CreatedAt   string   `json:"createdAt"`   // 创建时间
 }
 
 // ProductParams 产品查询参数

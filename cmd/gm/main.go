@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"tg-robot-sim/config"
@@ -17,9 +19,10 @@ import (
 )
 
 const (
-	cmdSyncProducts = "sync-products"
-	cmdListProducts = "list-products"
-	cmdHelp         = "help"
+	cmdSyncProducts       = "sync-products"
+	cmdSyncProductDetails = "sync-product-details"
+	cmdListProducts       = "list-products"
+	cmdHelp               = "help"
 )
 
 func main() {
@@ -59,6 +62,10 @@ func main() {
 	case cmdSyncProducts:
 		if err := syncProducts(ctx, cfg, db, *productType, *limit); err != nil {
 			log.Fatalf("同步产品失败: %v", err)
+		}
+	case cmdSyncProductDetails:
+		if err := syncProductDetails(ctx, cfg, db, *limit); err != nil {
+			log.Fatalf("同步产品详情失败: %v", err)
 		}
 	case cmdListProducts:
 		if err := listProducts(ctx, db, *productType); err != nil {
@@ -250,6 +257,145 @@ func convertToModel(apiProduct *esim.Product) (*models.Product, error) {
 	}, nil
 }
 
+// syncProductDetails 同步产品详情
+func syncProductDetails(ctx context.Context, cfg *config.Config, db *data.Database, limit int) error {
+	fmt.Println("开始同步产品详情...")
+
+	// 创建 eSIM 客户端
+	client := esim.NewClient(esim.Config{
+		APIKey:         cfg.EsimSDK.APIKey,
+		APISecret:      cfg.EsimSDK.APISecret,
+		BaseURL:        cfg.EsimSDK.BaseURL,
+		TimezoneOffset: cfg.EsimSDK.TimezoneOffset,
+	})
+
+	productRepo := db.GetProductRepository()
+	detailRepo := db.GetProductDetailRepository()
+
+	// 获取所有产品
+	params := repository.ListParams{
+		Status:  "active",
+		OrderBy: "id",
+		Limit:   0, // 获取所有
+	}
+
+	products, total, err := productRepo.List(ctx, params)
+	if err != nil {
+		return fmt.Errorf("获取产品列表失败: %w", err)
+	}
+
+	fmt.Printf("找到 %d 个产品需要同步详情\n\n", total)
+
+	totalSynced := 0
+	totalFailed := 0
+
+	for i, product := range products {
+		// 检查限制
+		if limit > 0 && totalSynced >= limit {
+			break
+		}
+
+		fmt.Printf("[%d/%d] 同步产品: %s (ID: %d)\n", i+1, len(products), product.Name, product.ID)
+
+		// 从 API 获取产品详情
+		// 注意：这里需要使用第三方ID，假设存储在 ThirdPartyID 字段中
+		thirdPartyID := extractThirdPartyID(product.ThirdPartyID)
+		if thirdPartyID == 0 {
+			fmt.Printf("  ✗ 跳过: 无效的第三方ID\n")
+			totalFailed++
+			continue
+		}
+
+		resp, err := client.GetProduct(thirdPartyID)
+		if err != nil {
+			fmt.Printf("  ✗ 获取详情失败: %v\n", err)
+			totalFailed++
+			continue
+		}
+
+		if !resp.Success {
+			fmt.Printf("  ✗ API返回失败: %s\n", resp.Data)
+			totalFailed++
+			continue
+		}
+
+		// 转换为详情模型
+		detail, err := convertToDetailModel(product.ID, &resp.Data)
+		if err != nil {
+			fmt.Printf("  ✗ 转换失败: %v\n", err)
+			totalFailed++
+			continue
+		}
+
+		// 保存详情
+		if err := detailRepo.Upsert(ctx, detail); err != nil {
+			fmt.Printf("  ✗ 保存失败: %v\n", err)
+			totalFailed++
+			continue
+		}
+
+		fmt.Printf("  ✓ 同步成功\n")
+		totalSynced++
+
+		// 避免请求过快
+		time.Sleep(300 * time.Millisecond)
+	}
+
+	fmt.Printf("\n同步完成!\n")
+	fmt.Printf("  成功: %d\n", totalSynced)
+	fmt.Printf("  失败: %d\n", totalFailed)
+
+	return nil
+}
+
+// extractThirdPartyID 从字符串中提取第三方ID
+func extractThirdPartyID(thirdPartyID string) int {
+	// 如果是 "product-123" 格式，提取数字
+	if strings.HasPrefix(thirdPartyID, "product-") {
+		idStr := strings.TrimPrefix(thirdPartyID, "product-")
+		if id, err := strconv.Atoi(idStr); err == nil {
+			return id
+		}
+	}
+	// 尝试直接转换
+	if id, err := strconv.Atoi(thirdPartyID); err == nil {
+		return id
+	}
+	return 0
+}
+
+// convertToDetailModel 将 API 产品详情转换为详情模型
+func convertToDetailModel(productID int, apiDetail *esim.ProductDetail) (*models.ProductDetail, error) {
+	// 序列化国家列表
+	countriesJSON, err := json.Marshal(apiDetail.Countries)
+	if err != nil {
+		return nil, fmt.Errorf("序列化国家列表失败: %w", err)
+	}
+
+	// 序列化特性列表
+	featuresJSON, err := json.Marshal(apiDetail.Features)
+	if err != nil {
+		return nil, fmt.Errorf("序列化特性列表失败: %w", err)
+	}
+
+	return &models.ProductDetail{
+		ProductID:    productID,
+		ThirdPartyID: apiDetail.ID,
+		Name:         apiDetail.Name,
+		Type:         apiDetail.Type,
+		Countries:    string(countriesJSON),
+		DataSize:     apiDetail.DataSize,
+		ValidDays:    apiDetail.ValidDays,
+		Price:        apiDetail.Price,
+		CostPrice:    apiDetail.CostPrice,
+		Description:  apiDetail.Description,
+		Features:     string(featuresJSON),
+		Status:       apiDetail.Status,
+		ApiCreatedAt: apiDetail.CreatedAt,
+		SyncedAt:     time.Now(),
+	}, nil
+}
+
 // printHelp 打印帮助信息
 func printHelp() {
 	fmt.Println("eSIM 管理工具")
@@ -258,9 +404,10 @@ func printHelp() {
 	fmt.Println("  gm -cmd <命令> [选项]")
 	fmt.Println()
 	fmt.Println("命令:")
-	fmt.Println("  sync-products    从 API 同步产品数据到本地数据库")
-	fmt.Println("  list-products    列出本地数据库中的产品")
-	fmt.Println("  help             显示帮助信息")
+	fmt.Println("  sync-products         从 API 同步产品数据到本地数据库")
+	fmt.Println("  sync-product-details  从 API 同步产品详情到详情表")
+	fmt.Println("  list-products         列出本地数据库中的产品")
+	fmt.Println("  help                  显示帮助信息")
 	fmt.Println()
 	fmt.Println("选项:")
 	fmt.Println("  -config <path>   配置文件路径 (默认: config/config.json)")
@@ -271,11 +418,11 @@ func printHelp() {
 	fmt.Println("  # 同步所有产品")
 	fmt.Println("  gm -cmd sync-products")
 	fmt.Println()
-	fmt.Println("  # 只同步本地产品")
-	fmt.Println("  gm -cmd sync-products -type local")
+	fmt.Println("  # 同步产品详情")
+	fmt.Println("  gm -cmd sync-product-details")
 	fmt.Println()
-	fmt.Println("  # 同步前 10 个产品")
-	fmt.Println("  gm -cmd sync-products -limit 10")
+	fmt.Println("  # 只同步前 10 个产品的详情")
+	fmt.Println("  gm -cmd sync-product-details -limit 10")
 	fmt.Println()
 	fmt.Println("  # 列出本地产品")
 	fmt.Println("  gm -cmd list-products")

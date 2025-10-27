@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -10,24 +11,27 @@ import (
 
 	"tg-robot-sim/pkg/sdk/esim"
 	"tg-robot-sim/services"
+	"tg-robot-sim/storage/models"
 	"tg-robot-sim/storage/repository"
 )
 
 // ProductsHandler 商品列表处理器
 type ProductsHandler struct {
-	bot         *tgbotapi.BotAPI
-	esimService services.EsimService
-	productRepo repository.ProductRepository
-	logger      Logger
+	bot               *tgbotapi.BotAPI
+	esimService       services.EsimService
+	productRepo       repository.ProductRepository
+	productDetailRepo repository.ProductDetailRepository
+	logger            Logger
 }
 
 // NewProductsHandler 创建商品处理器
-func NewProductsHandler(bot *tgbotapi.BotAPI, esimService services.EsimService, productRepo repository.ProductRepository, logger Logger) *ProductsHandler {
+func NewProductsHandler(bot *tgbotapi.BotAPI, esimService services.EsimService, productRepo repository.ProductRepository, productDetailRepo repository.ProductDetailRepository, logger Logger) *ProductsHandler {
 	return &ProductsHandler{
-		bot:         bot,
-		esimService: esimService,
-		productRepo: productRepo,
-		logger:      logger,
+		bot:               bot,
+		esimService:       esimService,
+		productRepo:       productRepo,
+		productDetailRepo: productDetailRepo,
+		logger:            logger,
 	}
 }
 
@@ -147,7 +151,7 @@ func (h *ProductsHandler) showAsiaProductsNew(ctx context.Context, chatID int64,
 	return err
 }
 
-// showProducts 显示产品列表
+// showProducts 显示产品列表（旧方法，已弃用，保留以备将来使用）
 func (h *ProductsHandler) showProducts(ctx context.Context, message *tgbotapi.Message, productType esim.ProductType, page int) error {
 	// 获取产品列表
 	resp, err := h.esimService.GetProducts(ctx, &esim.ProductParams{
@@ -314,32 +318,79 @@ func (h *ProductsHandler) buildProductListKeyboard(products []esim.Product, prod
 	return tgbotapi.NewInlineKeyboardMarkup(rows...)
 }
 
-// showProductDetail 显示产品详情
+// showProductDetail 显示产品详情（从产品详情表获取）
 func (h *ProductsHandler) showProductDetail(ctx context.Context, message *tgbotapi.Message, productID int) error {
-	resp, err := h.esimService.GetProduct(ctx, productID)
+	// 从产品详情表获取详细信息
+	productDetail, err := h.productDetailRepo.GetByProductID(ctx, productID)
 	if err != nil {
 		h.logger.Error("Failed to get product detail: %v", err)
-		return h.sendError(message.Chat.ID, "获取产品详情失败")
+		return h.sendError(message.Chat.ID, "产品详情不存在")
 	}
 
-	if !resp.Success {
-		return h.sendError(message.Chat.ID, "产品不存在")
-	}
-
-	// 注意：产品数据在 Message 字段中
-	product := resp.Message
-	text := services.FormatProductMessage(&product)
+	// 构建详情文本
+	text := h.formatProductDetailFromDetailDB(productDetail)
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🛒 立即购买", fmt.Sprintf("product_buy:%d", productID)),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 返回列表", fmt.Sprintf("products_%s", product.Type)),
+			tgbotapi.NewInlineKeyboardButtonData("🔙 返回列表", "products_back"),
 		),
 	)
 
 	return h.editOrSendMessage(message, text, keyboard)
+}
+
+// formatProductDetailFromDetailDB 格式化产品详情消息（从产品详情表）
+func (h *ProductsHandler) formatProductDetailFromDetailDB(detail *models.ProductDetail) string {
+	text := fmt.Sprintf("📱 *%s*\n\n", escapeMarkdown(detail.Name))
+
+	// 产品类型
+	typeText := map[string]string{
+		"local":    "🏠 本地",
+		"regional": "🌏 区域",
+		"global":   "🌍 全球",
+	}
+	if t, ok := typeText[detail.Type]; ok {
+		text += fmt.Sprintf("类型: %s\n", t)
+	}
+
+	// 解析国家列表
+	var countries []string
+	if err := json.Unmarshal([]byte(detail.Countries), &countries); err == nil && len(countries) > 0 {
+		text += "🗺️ 支持国家: "
+		if len(countries) <= 5 {
+			text += strings.Join(countries, "、")
+		} else {
+			text += strings.Join(countries[:5], "、")
+			text += fmt.Sprintf(" 等%d个国家", len(countries))
+		}
+		text += "\n"
+	}
+
+	// 流量和有效期
+	text += fmt.Sprintf("📊 流量: %s\n", detail.DataSize)
+	text += fmt.Sprintf("⏰ 有效期: %d天\n", detail.ValidDays)
+
+	// 价格（只显示零售价，单位 USDT）
+	text += fmt.Sprintf("\n💰 价格: *%.2f USDT*\n", detail.Price)
+
+	// 产品描述
+	if detail.Description != "" {
+		text += fmt.Sprintf("\n📝 描述:\n%s\n", detail.Description)
+	}
+
+	// 解析特性列表
+	var features []string
+	if err := json.Unmarshal([]byte(detail.Features), &features); err == nil && len(features) > 0 {
+		text += "\n✨ 特性:\n"
+		for _, feature := range features {
+			text += fmt.Sprintf("  • %s\n", feature)
+		}
+	}
+
+	return text
 }
 
 // searchProductsByCountry 按国家代码搜索产品
