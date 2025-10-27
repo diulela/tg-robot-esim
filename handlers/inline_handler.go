@@ -280,7 +280,7 @@ func (h *InlineHandler) buildInlineProductListText(products []*repository.Produc
 
 	for i, product := range products {
 		text += fmt.Sprintf("<b>%d.</b> %s\n", i+1, escapeHTML(product.Name))
-		text += fmt.Sprintf("   📊 %s  ⏰ %d天  💰 <b>%.2f USDT</b>\n\n",
+		text += fmt.Sprintf("   📊 %s  ⏰ %d天  \n💰 <b>%.2f USDT</b>\n\n",
 			formatDataSize(product.DataSize), product.ValidDays, product.Price)
 	}
 

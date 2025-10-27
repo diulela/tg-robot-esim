@@ -105,29 +105,6 @@ func (h *ProductsHandler) GetDescription() string {
 	return "浏览 eSIM 产品"
 }
 
-// handleProductSelection 处理产品选择（内部方法）
-func (h *ProductsHandler) handleProductSelection(ctx context.Context, message *tgbotapi.Message, productIndex int) error {
-	// 获取当前页的产品列表（默认第1页）
-	// TODO: 这里应该从会话中获取当前页码，暂时使用第1页
-	page := 1
-	products, _, err := h.getAsiaProducts(ctx, page, 5)
-	if err != nil {
-		h.logger.Error("Failed to get products: %v", err)
-		return h.sendError(message.Chat.ID, "获取产品列表失败")
-	}
-
-	// 检查产品编号是否有效
-	if productIndex > len(products) {
-		return h.sendError(message.Chat.ID, fmt.Sprintf("产品编号无效，请输入1-%d之间的数字", len(products)))
-	}
-
-	// 获取对应的产品
-	product := products[productIndex-1]
-
-	// 显示产品详情
-	return h.showProductDetailByMessage(ctx, message, product.ID)
-}
-
 // showAsiaProducts 显示亚洲产品列表（编辑消息）
 func (h *ProductsHandler) showAsiaProducts(ctx context.Context, message *tgbotapi.Message, page int) error {
 	products, total, err := h.getAsiaProducts(ctx, page, 100)
@@ -232,45 +209,6 @@ func (h *ProductsHandler) showProductDetail(ctx context.Context, message *tgbota
 	)
 
 	return h.editOrSendMessage(message, text, keyboard)
-}
-
-// showProductDetailByMessage 通过新消息显示产品详情（用于消息处理）
-func (h *ProductsHandler) showProductDetailByMessage(ctx context.Context, message *tgbotapi.Message, productID int) error {
-	var text string
-	var err error
-
-	// 首先尝试从产品详情表获取
-	productDetail, err := h.productDetailRepo.GetByProductID(ctx, productID)
-	if err == nil && productDetail != nil {
-		h.logger.Debug("Got product detail from database for product %d", productID)
-		text = h.formatProductDetailFromDetailDB(productDetail)
-	} else {
-		h.logger.Debug("Product detail not found in database for product %d, trying API", productID)
-
-		// 从数据库获取失败，尝试从API获取
-		text, err = h.getProductDetailFromAPI(ctx, productID)
-		if err != nil {
-			h.logger.Error("Failed to get product detail from API: %v", err)
-			return h.sendError(message.Chat.ID, "产品详情不存在")
-		}
-	}
-
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🛒 立即购买", fmt.Sprintf("product_buy:%d", productID)),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 返回列表", "products_back"),
-		),
-	)
-
-	// 发送新消息而不是编辑消息
-	msg := tgbotapi.NewMessage(message.Chat.ID, text)
-	msg.ParseMode = "HTML"
-	msg.ReplyMarkup = keyboard
-
-	_, err = h.bot.Send(msg)
-	return err
 }
 
 // getProductDetailFromAPI 从API获取产品详情
@@ -531,22 +469,15 @@ func (h *ProductsHandler) getAsiaProducts(ctx context.Context, page, limit int) 
 // buildAsiaProductListText 构建亚洲产品列表文本
 func (h *ProductsHandler) buildAsiaProductListText(products []*repository.ProductModel, page int, total int64, limit int) string {
 
-	text := "*🌏 亚洲区域产品*\n\n"
+	text := "<b>🌏 亚洲区域产品</b>\n\n"
 
 	for i, product := range products {
-		// 产品标题
-		text += fmt.Sprintf("*%d\\. %s*\n", i+1, escapeMarkdown(product.Name))
-
-		// 流量和有效期
-		text += fmt.Sprintf("📊 %s  ⏰ %d天 ",
-			formatDataSize(product.DataSize), product.ValidDays)
-
-		// 价格（只显示零售价，单位改为 USDT）
-		text += fmt.Sprintf("💰 价格: *%.2f USDT*\n", product.Price)
-
-		text += "\n"
+		text += fmt.Sprintf("<b>%d.</b> %s\n", i+1, escapeHTML(product.Name))
+		text += fmt.Sprintf("   📊 %s  ⏰ %d天  \n💰 <b>%.2f USDT</b>\n\n",
+			formatDataSize(product.DataSize), product.ValidDays, product.Price)
 	}
 
+	text += "<i>💡 点击下方按钮查看详情或购买</i>"
 	return text
 }
 
@@ -554,14 +485,9 @@ func (h *ProductsHandler) buildAsiaProductListText(products []*repository.Produc
 func (h *ProductsHandler) buildAsiaProductKeyboard(products []*repository.ProductModel, page int, total int64, limit int) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
 
-	// 选择按钮
+	// 添加快速操作按钮
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("我要购买！！！", "product_select"),
-	))
-
-	// 返回按钮
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("🔙 返回主菜单", "main_menu"),
+		tgbotapi.NewInlineKeyboardButtonData("🔍 选择产品", "product_select"),
 	))
 
 	return tgbotapi.NewInlineKeyboardMarkup(rows...)
