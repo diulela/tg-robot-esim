@@ -380,9 +380,6 @@ func (h *ProductsHandler) formatProductDetailFromAPI(detail *esim.ProductDetail)
 		}
 	}
 
-	// 添加数据来源标识
-	text += "\n_数据来源: 实时API_"
-
 	return text
 }
 
@@ -433,10 +430,6 @@ func (h *ProductsHandler) formatProductDetailFromDetailDB(detail *models.Product
 			text += fmt.Sprintf("  • %s\n", feature)
 		}
 	}
-
-	// 添加数据来源标识和同步时间
-	text += fmt.Sprintf("\n_数据来源: 本地缓存 (同步时间: %s)_",
-		detail.SyncedAt.Format("01-02 15:04"))
 
 	return text
 }
