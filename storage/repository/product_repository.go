@@ -44,11 +44,15 @@ type ListParams struct {
 	Type      string
 	Status    string
 	IsHot     *bool
+	NameLike  string // 名称模糊搜索
 	Page      int
 	Limit     int
 	OrderBy   string
 	OrderDesc bool
 }
+
+// ProductModel 产品模型别名（用于避免循环导入）
+type ProductModel = models.Product
 
 // productRepository 产品仓储实现
 type productRepository struct {
@@ -106,6 +110,9 @@ func (r *productRepository) List(ctx context.Context, params ListParams) ([]*mod
 	}
 	if params.IsHot != nil {
 		query = query.Where("is_hot = ?", *params.IsHot)
+	}
+	if params.NameLike != "" {
+		query = query.Where("name LIKE ?", "%"+params.NameLike+"%")
 	}
 
 	// 计算总数

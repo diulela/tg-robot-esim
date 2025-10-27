@@ -152,7 +152,12 @@ func main() {
 
 	// 注册产品处理器（如果 eSIM 服务已配置）
 	if esimService != nil {
-		productsHandler := handlers.NewProductsHandler(telegramBot.GetAPI(), esimService, appLogger)
+		productsHandler := handlers.NewProductsHandler(
+			telegramBot.GetAPI(),
+			esimService,
+			db.GetProductRepository(),
+			appLogger,
+		)
 		if err := registry.RegisterCommandHandler(productsHandler); err != nil {
 			appLogger.Error("Failed to register products command handler: %v", err)
 			log.Fatalf("Failed to register products command handler: %v", err)
