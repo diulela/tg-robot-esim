@@ -167,7 +167,19 @@ func main() {
 			appLogger.Error("Failed to register products callback handler: %v", err)
 			log.Fatalf("Failed to register products callback handler: %v", err)
 		}
-		appLogger.Info("Products handler registered successfully")
+
+		// 注册 Inline 查询处理器
+		inlineHandler := handlers.NewInlineHandler(
+			telegramBot.GetAPI(),
+			db.GetProductRepository(),
+			appLogger,
+		)
+		if err := registry.RegisterInlineHandler(inlineHandler); err != nil {
+			appLogger.Error("Failed to register inline handler: %v", err)
+			log.Fatalf("Failed to register inline handler: %v", err)
+		}
+
+		appLogger.Info("Products and inline handlers registered successfully")
 	}
 
 	// 注册消息处理器

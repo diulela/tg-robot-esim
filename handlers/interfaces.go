@@ -45,6 +45,16 @@ type CommandHandler interface {
 	GetDescription() string
 }
 
+// InlineQueryHandler 定义 Inline 查询处理器接口
+// 负责处理 Inline 查询
+type InlineQueryHandler interface {
+	// HandleInlineQuery 处理 Inline 查询
+	HandleInlineQuery(ctx context.Context, query *tgbotapi.InlineQuery) error
+
+	// GetHandlerName 获取处理器名称
+	GetHandlerName() string
+}
+
 // HandlerRegistry 定义处理器注册表接口
 // 负责管理所有处理器的注册和路由
 type HandlerRegistry interface {
@@ -57,9 +67,15 @@ type HandlerRegistry interface {
 	// RegisterCommandHandler 注册命令处理器
 	RegisterCommandHandler(handler CommandHandler) error
 
+	// RegisterInlineHandler 注册 Inline 查询处理器
+	RegisterInlineHandler(handler InlineQueryHandler) error
+
 	// RouteMessage 路由消息到合适的处理器
 	RouteMessage(ctx context.Context, message *tgbotapi.Message) error
 
 	// RouteCallback 路由回调到合适的处理器
 	RouteCallback(ctx context.Context, callback *tgbotapi.CallbackQuery) error
+
+	// RouteInlineQuery 路由 Inline 查询到合适的处理器
+	RouteInlineQuery(ctx context.Context, query *tgbotapi.InlineQuery) error
 }

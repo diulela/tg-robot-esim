@@ -13,6 +13,7 @@ type Registry struct {
 	messageHandlers  []MessageHandler
 	callbackHandlers []CallbackHandler
 	commandHandlers  map[string]CommandHandler
+	inlineHandlers   []InlineQueryHandler
 	middlewares      []Middleware
 	mu               sync.RWMutex
 }
@@ -23,6 +24,7 @@ func NewRegistry() *Registry {
 		messageHandlers:  make([]MessageHandler, 0),
 		callbackHandlers: make([]CallbackHandler, 0),
 		commandHandlers:  make(map[string]CommandHandler),
+		inlineHandlers:   make([]InlineQueryHandler, 0),
 		middlewares:      make([]Middleware, 0),
 	}
 }
@@ -72,6 +74,19 @@ func (r *Registry) RegisterCommandHandler(handler CommandHandler) error {
 	}
 
 	r.commandHandlers[command] = handler
+	return nil
+}
+
+// RegisterInlineHandler 注册 Inline 查询处理器
+func (r *Registry) RegisterInlineHandler(handler InlineQueryHandler) error {
+	if handler == nil {
+		return fmt.Errorf("inline handler cannot be nil")
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.inlineHandlers = append(r.inlineHandlers, handler)
 	return nil
 }
 
@@ -139,6 +154,31 @@ func (r *Registry) RouteCallback(ctx context.Context, callback *tgbotapi.Callbac
 
 	// 应用中间件链
 	return r.applyCallbackMiddlewares(ctx, callback, handlerFunc)
+}
+
+// RouteInlineQuery 路由 Inline 查询到合适的处理器
+func (r *Registry) RouteInlineQuery(ctx context.Context, query *tgbotapi.InlineQuery) error {
+	if query == nil {
+		return fmt.Errorf("inline query cannot be nil")
+	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	// 目前简单处理，使用第一个注册的 Inline 处理器
+	// 可以根据需要扩展为支持多个处理器的路由逻辑
+	if len(r.inlineHandlers) == 0 {
+		return fmt.Errorf("no inline handler registered")
+	}
+
+	// 使用第一个处理器
+	handler := r.inlineHandlers[0]
+	err := handler.HandleInlineQuery(ctx, query)
+	if err != nil {
+		return fmt.Errorf("inline handler (%s) failed: %w", handler.GetHandlerName(), err)
+	}
+
+	return nil
 }
 
 // GetRegisteredCommands 获取已注册的命令列表

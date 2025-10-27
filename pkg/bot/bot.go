@@ -196,6 +196,14 @@ func (b *Bot) processUpdate(ctx context.Context, update tgbotapi.Update) {
 		return
 	}
 
+	// 处理 Inline 查询
+	if update.InlineQuery != nil {
+		if err := b.registry.RouteInlineQuery(ctx, update.InlineQuery); err != nil {
+			b.logger.Error("Failed to route inline query: %v", err)
+		}
+		return
+	}
+
 	// 其他类型的更新暂时忽略
 	b.logger.Debug("Received unhandled update type")
 }
