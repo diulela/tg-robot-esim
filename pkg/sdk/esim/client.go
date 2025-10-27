@@ -214,7 +214,7 @@ func (c *Client) requestTyped(method, path string, data interface{}, result inte
 	}
 
 	fmt.Printf("[DEBUG] Response Status: %d\n", resp.StatusCode)
-	fmt.Printf("[DEBUG] Response Body (first 500 chars): %s\n\n", string(respBody[:min(500, len(respBody))]))
+	fmt.Printf("[DEBUG] Response Body): %s\n\n", string(respBody))
 
 	if resp.StatusCode >= 400 {
 		var errResp map[string]interface{}
