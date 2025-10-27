@@ -54,24 +54,45 @@ func (h *ProductsHandler) HandleCallback(ctx context.Context, callback *tgbotapi
 	switch action {
 	case "products_back":
 		// 直接显示亚洲产品列表
-		return h.showAsiaProducts(ctx, callback.Message, 1)
+		if callback.Message != nil {
+			return h.showAsiaProducts(ctx, callback.Message, 1)
+		} else {
+			return h.showAsiaProductsNew(ctx, callback.From.ID, 1)
+		}
 	case "products_page":
 		if len(parts) >= 2 {
 			page, _ := strconv.Atoi(parts[1])
-			return h.showAsiaProducts(ctx, callback.Message, page)
+			if callback.Message != nil {
+				return h.showAsiaProducts(ctx, callback.Message, page)
+			} else {
+				return h.showAsiaProductsNew(ctx, callback.From.ID, page)
+			}
 		}
 	case "product_select":
 		// 用户点击"选择产品"按钮，提示输入产品编号
-		return h.promptProductSelection(ctx, callback.Message)
+		if callback.Message != nil {
+			return h.promptProductSelection(ctx, callback.Message)
+		} else {
+			return h.promptProductSelectionToUser(ctx, callback.From.ID)
+		}
 	case "product_detail":
 		if len(parts) >= 2 {
 			productID, _ := strconv.Atoi(parts[1])
-			return h.showProductDetail(ctx, callback.Message, productID)
+			if callback.Message != nil {
+				return h.showProductDetail(ctx, callback.Message, productID)
+			} else {
+				// 当 callback.Message 为 nil 时，发送新消息到用户的私聊
+				return h.showProductDetailToUser(ctx, callback.From.ID, productID)
+			}
 		}
 	case "product_buy":
 		if len(parts) >= 2 {
 			productID, _ := strconv.Atoi(parts[1])
-			return h.startPurchase(ctx, callback.Message, userID, productID)
+			if callback.Message != nil {
+				return h.startPurchase(ctx, callback.Message, userID, productID)
+			} else {
+				return h.startPurchaseToUser(ctx, userID, productID)
+			}
 		}
 	}
 
@@ -209,6 +230,45 @@ func (h *ProductsHandler) showProductDetail(ctx context.Context, message *tgbota
 	)
 	h.logger.Debug("Got product detail from database for product %d", productID)
 	return h.editOrSendMessage(message, text, keyboard)
+}
+
+// showProductDetailToUser 向用户发送产品详情（用于 callback.Message 为 nil 的情况）
+func (h *ProductsHandler) showProductDetailToUser(ctx context.Context, userID int64, productID int) error {
+	var text string
+	var err error
+
+	// 首先尝试从产品详情表获取
+	productDetail, err := h.productDetailRepo.GetByProductID(ctx, productID)
+	if err == nil && productDetail != nil {
+		h.logger.Debug("Got product detail from database for product %d", productID)
+		text = h.formatProductDetailFromDetailDB(productDetail)
+	} else {
+		h.logger.Debug("Product detail not found in database for product %d, trying API", productID)
+
+		// 从数据库获取失败，尝试从API获取
+		text, err = h.getProductDetailFromAPI(ctx, productID)
+		if err != nil {
+			h.logger.Error("Failed to get product detail from API: %v", err)
+			return h.sendError(userID, "产品详情不存在")
+		}
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🛒 立即购买", fmt.Sprintf("product_buy:%d", productID)),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 返回列表", "products_back"),
+		),
+	)
+
+	// 发送新消息
+	msg := tgbotapi.NewMessage(userID, text)
+	msg.ParseMode = "HTML"
+	msg.ReplyMarkup = keyboard
+
+	_, err = h.bot.Send(msg)
+	return err
 }
 
 // getProductDetailFromAPI 从API获取产品详情
@@ -392,6 +452,27 @@ func (h *ProductsHandler) promptProductSelection(ctx context.Context, message *t
 	return err
 }
 
+// promptProductSelectionToUser 向用户发送产品选择提示（用于 callback.Message 为 nil 的情况）
+func (h *ProductsHandler) promptProductSelectionToUser(ctx context.Context, userID int64) error {
+	text := "<b>🔍 选择产品</b>\n\n"
+	text += "请回复您想查看的产品编号\n"
+	text += "例如：回复 <code>1</code> 查看产品1的详情\n\n"
+	text += "<i>💡 提示：直接输入数字即可</i>"
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 返回产品列表", "products_back"),
+		),
+	)
+
+	msg := tgbotapi.NewMessage(userID, text)
+	msg.ParseMode = "HTML"
+	msg.ReplyMarkup = keyboard
+
+	_, err := h.bot.Send(msg)
+	return err
+}
+
 // startPurchase 开始购买流程
 func (h *ProductsHandler) startPurchase(ctx context.Context, message *tgbotapi.Message, userID int64, productID int) error {
 	text := "🛒 *开始购买流程*\n\n"
@@ -413,11 +494,41 @@ func (h *ProductsHandler) startPurchase(ctx context.Context, message *tgbotapi.M
 	return h.editOrSendMessage(message, text, keyboard)
 }
 
+// startPurchaseToUser 向用户发送购买流程（用于 callback.Message 为 nil 的情况）
+func (h *ProductsHandler) startPurchaseToUser(ctx context.Context, userID int64, productID int) error {
+	text := "🛒 <b>开始购买流程</b>\n\n"
+	text += "请提供以下信息：\n"
+	text += "1. 客户邮箱地址（必填）\n"
+	text += "2. 客户手机号（可选）\n"
+	text += "3. 购买数量（默认1）\n\n"
+	text += "请按以下格式发送：\n"
+	text += "<code>customer@example.com</code>\n"
+	text += "或\n"
+	text += "<code>customer@example.com,+86 138 0000 0000,2</code>"
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("❌ 取消", fmt.Sprintf("product_detail:%d", productID)),
+		),
+	)
+
+	msg := tgbotapi.NewMessage(userID, text)
+	msg.ParseMode = "HTML"
+	msg.ReplyMarkup = keyboard
+
+	_, err := h.bot.Send(msg)
+	return err
+}
+
 // Helper functions
 
 func (h *ProductsHandler) editOrSendMessage(message *tgbotapi.Message, text string, keyboard tgbotapi.InlineKeyboardMarkup) error {
+	if message == nil {
+		return fmt.Errorf("message cannot be nil")
+	}
+
 	editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, message.MessageID, text)
-	editMsg.ParseMode = "Markdown"
+	editMsg.ParseMode = "HTML"
 	editMsg.ReplyMarkup = &keyboard
 
 	_, err := h.bot.Send(editMsg)
