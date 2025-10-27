@@ -25,6 +25,7 @@ type Database struct {
 	userRepo        repository.UserRepository
 	sessionRepo     repository.UserSessionRepository
 	transactionRepo repository.TransactionRepository
+	productRepo     repository.ProductRepository
 }
 
 // NewDatabase 创建数据库管理器
@@ -90,6 +91,7 @@ func NewDatabase(cfg *config.DatabaseConfig) (*Database, error) {
 	database.userRepo = repository.NewUserRepository(db)
 	database.sessionRepo = repository.NewUserSessionRepository(db)
 	database.transactionRepo = repository.NewTransactionRepository(db)
+	database.productRepo = repository.NewProductRepository(db)
 
 	return database, nil
 }
@@ -105,6 +107,7 @@ func (d *Database) AutoMigrate() error {
 		&models.User{},
 		&models.UserSession{},
 		&models.Transaction{},
+		&models.Product{},
 	)
 }
 
@@ -139,6 +142,11 @@ func (d *Database) GetSessionRepository() repository.UserSessionRepository {
 // GetTransactionRepository 获取交易仓库
 func (d *Database) GetTransactionRepository() repository.TransactionRepository {
 	return d.transactionRepo
+}
+
+// GetProductRepository 获取产品仓库
+func (d *Database) GetProductRepository() repository.ProductRepository {
+	return d.productRepo
 }
 
 // Transaction 执行数据库事务
