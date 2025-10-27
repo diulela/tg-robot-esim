@@ -385,15 +385,8 @@ func (h *ProductsHandler) promptProductSelection(ctx context.Context, message *t
 	text += "例如：回复 <code>1</code> 查看产品1的详情\n\n"
 	text += "<i>💡 提示：直接输入数字即可</i>"
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 返回产品列表", "products_back"),
-		),
-	)
-
 	editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, message.MessageID, text)
 	editMsg.ParseMode = "HTML"
-	editMsg.ReplyMarkup = &keyboard
 
 	_, err := h.bot.Send(editMsg)
 	return err
