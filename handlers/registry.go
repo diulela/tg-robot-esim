@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"sync"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -101,6 +102,19 @@ func (r *Registry) RouteMessage(ctx context.Context, message *tgbotapi.Message) 
 
 	// 创建处理函数
 	handlerFunc := func(ctx context.Context, msg *tgbotapi.Message) error {
+		// 添加 panic 处理
+		defer func() {
+			if r := recover(); r != nil {
+				// 获取详细的堆栈跟踪信息
+				stack := make([]byte, 4096)
+				length := runtime.Stack(stack, false)
+				// 注意：这里不能使用 logger，因为 registry 没有 logger
+				// 这个错误会被上层的中间件捕获
+				panic(fmt.Sprintf("PANIC in message routing: %v\nMessage: %+v\nStack trace:\n%s",
+					r, msg, string(stack[:length])))
+			}
+		}()
+
 		// 首先检查是否是命令
 		if msg.IsCommand() {
 			command := msg.Command()
@@ -134,6 +148,19 @@ func (r *Registry) RouteCallback(ctx context.Context, callback *tgbotapi.Callbac
 
 	// 创建处理函数
 	handlerFunc := func(ctx context.Context, cb *tgbotapi.CallbackQuery) error {
+		// 添加 panic 处理
+		defer func() {
+			if r := recover(); r != nil {
+				// 获取详细的堆栈跟踪信息
+				stack := make([]byte, 4096)
+				length := runtime.Stack(stack, false)
+				// 注意：这里不能使用 logger，因为 registry 没有 logger
+				// 这个错误会被上层的中间件捕获
+				panic(fmt.Sprintf("PANIC in callback routing: %v\nCallback: %+v\nStack trace:\n%s",
+					r, cb, string(stack[:length])))
+			}
+		}()
+
 		handlerFound := false
 		for i, handler := range r.callbackHandlers {
 			if handler.CanHandle(cb) {
@@ -158,6 +185,19 @@ func (r *Registry) RouteCallback(ctx context.Context, callback *tgbotapi.Callbac
 
 // RouteInlineQuery 路由 Inline 查询到合适的处理器
 func (r *Registry) RouteInlineQuery(ctx context.Context, query *tgbotapi.InlineQuery) error {
+	// 添加 panic 处理
+	defer func() {
+		if r := recover(); r != nil {
+			// 获取详细的堆栈跟踪信息
+			stack := make([]byte, 4096)
+			length := runtime.Stack(stack, false)
+			// 注意：这里不能使用 logger，因为 registry 没有 logger
+			// 这个错误会被上层捕获
+			panic(fmt.Sprintf("PANIC in inline query routing: %v\nQuery: %+v\nStack trace:\n%s",
+				r, query, string(stack[:length])))
+		}
+	}()
+
 	if query == nil {
 		return fmt.Errorf("inline query cannot be nil")
 	}

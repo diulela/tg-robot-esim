@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"runtime"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -43,6 +44,17 @@ func NewLoggingMiddleware(logger Logger) *LoggingMiddleware {
 func (m *LoggingMiddleware) ProcessMessage(ctx context.Context, message *tgbotapi.Message, next MessageHandlerFunc) error {
 	start := time.Now()
 
+	// 添加 panic 处理
+	defer func() {
+		if r := recover(); r != nil {
+			// 获取详细的堆栈跟踪信息
+			stack := make([]byte, 4096)
+			length := runtime.Stack(stack, false)
+			m.logger.Error("PANIC in message processing from user %d (@%s): %v\nMessage: %s\nStack trace:\n%s",
+				message.From.ID, message.From.UserName, r, message.Text, string(stack[:length]))
+		}
+	}()
+
 	m.logger.Info("Processing message from user %d (@%s): %s",
 		message.From.ID, message.From.UserName, message.Text)
 
@@ -61,6 +73,17 @@ func (m *LoggingMiddleware) ProcessMessage(ctx context.Context, message *tgbotap
 // ProcessCallback 处理回调日志
 func (m *LoggingMiddleware) ProcessCallback(ctx context.Context, callback *tgbotapi.CallbackQuery, next CallbackHandlerFunc) error {
 	start := time.Now()
+
+	// 添加 panic 处理
+	defer func() {
+		if r := recover(); r != nil {
+			// 获取详细的堆栈跟踪信息
+			stack := make([]byte, 4096)
+			length := runtime.Stack(stack, false)
+			m.logger.Error("PANIC in callback processing from user %d (@%s): %v\nCallback data: %s\nStack trace:\n%s",
+				callback.From.ID, callback.From.UserName, r, callback.Data, string(stack[:length]))
+		}
+	}()
 
 	m.logger.Info("Processing callback from user %d (@%s): %s",
 		callback.From.ID, callback.From.UserName, callback.Data)

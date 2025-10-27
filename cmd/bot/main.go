@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -22,6 +23,17 @@ const (
 )
 
 func main() {
+	// 添加全局 panic 处理
+	defer func() {
+		if r := recover(); r != nil {
+			// 获取详细的堆栈跟踪信息
+			stack := make([]byte, 4096)
+			length := runtime.Stack(stack, false)
+			log.Printf("FATAL PANIC: %v\nStack trace:\n%s", r, string(stack[:length]))
+			os.Exit(1)
+		}
+	}()
+
 	// 加载配置
 	cfg, err := config.LoadConfig(defaultConfigPath)
 	if err != nil {

@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -174,7 +175,13 @@ func (b *Bot) handleUpdates(ctx context.Context) {
 func (b *Bot) processUpdate(ctx context.Context, update tgbotapi.Update) {
 	defer func() {
 		if r := recover(); r != nil {
-			b.logger.Error("Panic in update processing: %v", r)
+			// 获取详细的堆栈跟踪信息
+			stack := make([]byte, 4096)
+			length := runtime.Stack(stack, false)
+			b.logger.Error("Panic in update processing: %v\nStack trace:\n%s", r, string(stack[:length]))
+
+			// 打印更新内容以便调试
+			b.logger.Error("Update that caused panic: %+v", update)
 		}
 	}()
 
