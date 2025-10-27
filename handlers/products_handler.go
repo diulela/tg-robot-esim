@@ -182,7 +182,7 @@ func escapeMarkdown(text string) string {
 func (h *ProductsHandler) showProductDetail(ctx context.Context, message *tgbotapi.Message, productID int) error {
 	var text string
 	var err error
-
+	h.logger.Debug("Got product detail from database for product %d", productID)
 	// 首先尝试从产品详情表获取
 	productDetail, err := h.productDetailRepo.GetByProductID(ctx, productID)
 	if err == nil && productDetail != nil {
@@ -198,7 +198,7 @@ func (h *ProductsHandler) showProductDetail(ctx context.Context, message *tgbota
 			return h.sendError(message.Chat.ID, "产品详情不存在")
 		}
 	}
-
+	h.logger.Debug("Got product detail from database for product %d", productID)
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🛒 立即购买", fmt.Sprintf("product_buy:%d", productID)),
@@ -207,7 +207,7 @@ func (h *ProductsHandler) showProductDetail(ctx context.Context, message *tgbota
 			tgbotapi.NewInlineKeyboardButtonData("🔙 返回列表", "products_back"),
 		),
 	)
-
+	h.logger.Debug("Got product detail from database for product %d", productID)
 	return h.editOrSendMessage(message, text, keyboard)
 }
 
