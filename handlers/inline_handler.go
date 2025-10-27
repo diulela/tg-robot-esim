@@ -16,14 +16,23 @@ type InlineHandler struct {
 	bot         *tgbotapi.BotAPI
 	productRepo repository.ProductRepository
 	logger      Logger
+	botUsername string // 机器人用户名，用于构建深度链接
 }
 
 // NewInlineHandler 创建 Inline 查询处理器
 func NewInlineHandler(bot *tgbotapi.BotAPI, productRepo repository.ProductRepository, logger Logger) *InlineHandler {
+	// 获取机器人信息
+	me, err := bot.GetMe()
+	botUsername := ""
+	if err == nil {
+		botUsername = me.UserName
+	}
+
 	return &InlineHandler{
 		bot:         bot,
 		productRepo: productRepo,
 		logger:      logger,
+		botUsername: botUsername,
 	}
 }
 
@@ -123,11 +132,11 @@ func (h *InlineHandler) buildProductListResults(ctx context.Context) ([]interfac
 			ParseMode: "HTML",
 		}
 
-		// 添加产品操作按钮
+		// 添加产品操作按钮 - 使用 URL 按钮直接打开机器人对话
 		productKeyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("📖 查看详情", fmt.Sprintf("product_detail:%d", product.ID)),
-				tgbotapi.NewInlineKeyboardButtonData("🛒 立即购买", fmt.Sprintf("product_buy:%d", product.ID)),
+				tgbotapi.NewInlineKeyboardButtonURL("📖 查看详情", fmt.Sprintf("https://t.me/%s?start=product_detail_%d", h.botUsername, product.ID)),
+				tgbotapi.NewInlineKeyboardButtonURL("🛒 立即购买", fmt.Sprintf("https://t.me/%s?start=product_buy_%d", h.botUsername, product.ID)),
 			),
 		)
 		productResult.ReplyMarkup = &productKeyboard
@@ -287,7 +296,7 @@ func (h *InlineHandler) buildInlineProductListText(products []*repository.Produc
 			formatDataSize(product.DataSize), product.ValidDays, product.Price)
 	}
 
-	text += "<i>💡 点击下方按钮操作，或点击上方「💬 打开机器人对话」获得完整功能</i>"
+	text += "<i>💡 点击下方「💬 打开机器人对话」按钮，即可在私聊窗口中进行完整操作</i>"
 	return text
 }
 
@@ -314,15 +323,12 @@ func (h *InlineHandler) buildProductDetailInlineText(product *repository.Product
 func (h *InlineHandler) buildInlineProductListKeyboard(products []*repository.ProductModel) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
 
-	// 添加快速操作按钮
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("🔍 选择产品", "product_select"),
-	))
-
-	// 添加"在私聊中操作"按钮
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("💬 在私聊中操作", "open_private_chat"),
-	))
+	// 添加"打开机器人对话"按钮 - 使用 URL 按钮
+	if h.botUsername != "" {
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonURL("💬 打开机器人对话", fmt.Sprintf("https://t.me/%s?start=inline_products", h.botUsername)),
+		))
+	}
 
 	return tgbotapi.NewInlineKeyboardMarkup(rows...)
 }

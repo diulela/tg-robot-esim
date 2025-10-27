@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
@@ -38,9 +39,8 @@ func (h *StartHandler) HandleCommand(ctx context.Context, message *tgbotapi.Mess
 
 	// 检查是否有深度链接参数
 	args := message.CommandArguments()
-	if args == "inline_products" {
-		// 用户从 Inline Mode 切换过来，发送欢迎消息并引导到产品列表
-		return h.handleInlineProductsDeepLink(ctx, message.Chat.ID)
+	if args != "" {
+		return h.handleDeepLink(ctx, message.Chat.ID, args)
 	}
 
 	// 使用对话服务处理 start 命令
@@ -51,6 +51,25 @@ func (h *StartHandler) HandleCommand(ctx context.Context, message *tgbotapi.Mess
 
 	// 发送响应
 	return h.sendResponse(message.Chat.ID, response)
+}
+
+// handleDeepLink 处理深度链接
+func (h *StartHandler) handleDeepLink(ctx context.Context, chatID int64, args string) error {
+	switch {
+	case args == "inline_products":
+		return h.handleInlineProductsDeepLink(ctx, chatID)
+	case strings.HasPrefix(args, "product_detail_"):
+		// 提取产品ID并显示产品详情
+		productIDStr := strings.TrimPrefix(args, "product_detail_")
+		return h.handleProductDetailDeepLink(ctx, chatID, productIDStr)
+	case strings.HasPrefix(args, "product_buy_"):
+		// 提取产品ID并开始购买流程
+		productIDStr := strings.TrimPrefix(args, "product_buy_")
+		return h.handleProductBuyDeepLink(ctx, chatID, productIDStr)
+	default:
+		// 未知参数，显示默认欢迎消息
+		return h.handleInlineProductsDeepLink(ctx, chatID)
+	}
 }
 
 // handleInlineProductsDeepLink 处理从 Inline Mode 切换过来的用户
@@ -70,6 +89,53 @@ func (h *StartHandler) handleInlineProductsDeepLink(ctx context.Context, chatID 
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("ℹ️ 帮助", "help"),
 			tgbotapi.NewInlineKeyboardButtonData("📞 联系客服", "contact"),
+		),
+	)
+
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = "HTML"
+	msg.ReplyMarkup = keyboard
+
+	_, err := h.bot.Send(msg)
+	return err
+}
+
+// handleProductDetailDeepLink 处理产品详情深度链接
+func (h *StartHandler) handleProductDetailDeepLink(ctx context.Context, chatID int64, productIDStr string) error {
+	text := "<b>📱 产品详情</b>\n\n"
+	text += fmt.Sprintf("正在为您加载产品 %s 的详细信息...\n\n", productIDStr)
+	text += "<i>请使用下方按钮查看完整产品信息</i>"
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📖 查看详情", fmt.Sprintf("product_detail:%s", productIDStr)),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🛍️ 浏览更多产品", "products_back"),
+		),
+	)
+
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = "HTML"
+	msg.ReplyMarkup = keyboard
+
+	_, err := h.bot.Send(msg)
+	return err
+}
+
+// handleProductBuyDeepLink 处理产品购买深度链接
+func (h *StartHandler) handleProductBuyDeepLink(ctx context.Context, chatID int64, productIDStr string) error {
+	text := "<b>🛒 购买产品</b>\n\n"
+	text += fmt.Sprintf("您选择购买产品 %s\n\n", productIDStr)
+	text += "<i>请使用下方按钮开始购买流程</i>"
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🛒 立即购买", fmt.Sprintf("product_buy:%s", productIDStr)),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📖 查看详情", fmt.Sprintf("product_detail:%s", productIDStr)),
+			tgbotapi.NewInlineKeyboardButtonData("🛍️ 浏览更多", "products_back"),
 		),
 	)
 
