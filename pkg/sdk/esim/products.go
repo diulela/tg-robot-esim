@@ -1,6 +1,9 @@
 package esim
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // ProductType 产品类型
 type ProductType string
@@ -69,27 +72,40 @@ type ProductListMessage struct {
 	Pagination Pagination `json:"pagination"`
 }
 
-// ProductDetailResponse 产品详情响应
+// ProductDetailResponse 产品详情响应（兼容不同格式）
 type ProductDetailResponse struct {
-	Success bool          `json:"success"`
-	Message string        `json:"message"` // 消息文本，如 "获取产品详情成功"
-	Data    ProductDetail `json:"data"`    // 产品详情数据
+	Success   bool            `json:"success"`
+	Code      int             `json:"code"`
+	Message   json.RawMessage `json:"message"` // 可能是字符串或对象
+	Data      json.RawMessage `json:"data"`    // 可能是字符串或对象
+	Timestamp string          `json:"timestamp"`
+
+	// 解析后的产品详情
+	ProductDetail *ProductDetail `json:"-"`
 }
 
-// ProductDetail 产品详情（简化版，基于API实际返回）
+// ProductDetail 产品详情（基于API实际返回）
 type ProductDetail struct {
-	ID          int      `json:"id"`          // 产品ID
-	Name        string   `json:"name"`        // 产品名称
-	Type        string   `json:"type"`        // 产品类型：local, regional, global
-	Countries   []string `json:"countries"`   // 国家代码列表
-	DataSize    string   `json:"dataSize"`    // 流量大小，如 "5GB"
-	ValidDays   int      `json:"validDays"`   // 有效天数
-	Price       float64  `json:"price"`       // 价格
-	CostPrice   float64  `json:"costPrice"`   // 成本价
-	Description string   `json:"description"` // 产品描述
-	Features    []string `json:"features"`    // 产品特性列表
-	Status      string   `json:"status"`      // 状态：active, inactive
-	CreatedAt   string   `json:"createdAt"`   // 创建时间
+	ID             int         `json:"id"`             // 产品ID
+	Name           string      `json:"name"`           // 产品名称
+	NameEn         string      `json:"nameEn"`         // 英文名称
+	Type           string      `json:"type"`           // 产品类型：local, regional, global
+	Countries      []Country   `json:"countries"`      // 国家列表（完整对象）
+	DataSize       int         `json:"dataSize"`       // 流量大小（MB，0表示无限）
+	ValidDays      int         `json:"validDays"`      // 有效天数
+	Price          float64     `json:"price"`          // 价格
+	CostPrice      float64     `json:"costPrice"`      // 成本价
+	Description    string      `json:"description"`    // 产品描述
+	DescriptionEn  string      `json:"descriptionEn"`  // 英文描述
+	Features       []string    `json:"features"`       // 产品特性列表
+	Image          string      `json:"image"`          // 产品图片
+	Gallery        interface{} `json:"gallery"`        // 图片库
+	ThirdPartyID   string      `json:"thirdPartyId"`   // 第三方ID
+	ThirdPartyData interface{} `json:"thirdPartyData"` // 第三方数据
+	IsHot          bool        `json:"isHot"`          // 是否热门
+	IsRecommend    bool        `json:"isRecommend"`    // 是否推荐
+	SortOrder      int         `json:"sortOrder"`      // 排序
+	Status         string      `json:"status"`         // 状态：active, inactive
 }
 
 // ProductParams 产品查询参数
@@ -139,7 +155,44 @@ func (c *Client) GetProduct(productID int) (*ProductDetailResponse, error) {
 		return nil, err
 	}
 
+	// 解析产品详情数据（兼容不同格式）
+	if err := c.parseProductDetail(&response); err != nil {
+		return nil, fmt.Errorf("parse product detail: %w", err)
+	}
+
 	return &response, nil
+}
+
+// parseProductDetail 解析产品详情数据（兼容处理）
+func (c *Client) parseProductDetail(response *ProductDetailResponse) error {
+	var detail ProductDetail
+	var err error
+
+	// 首先尝试从 Data 字段解析
+	if len(response.Data) > 0 {
+		// 检查 Data 是否是对象
+		if response.Data[0] == '{' {
+			err = json.Unmarshal(response.Data, &detail)
+			if err == nil {
+				response.ProductDetail = &detail
+				return nil
+			}
+		}
+	}
+
+	// 如果 Data 不是对象，尝试从 Message 字段解析
+	if len(response.Message) > 0 {
+		// 检查 Message 是否是对象
+		if response.Message[0] == '{' {
+			err = json.Unmarshal(response.Message, &detail)
+			if err == nil {
+				response.ProductDetail = &detail
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("no valid product detail found in response")
 }
 
 // GetCountries 获取支持的国家列表

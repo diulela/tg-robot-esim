@@ -27,7 +27,7 @@ const (
 
 func main() {
 	// 定义命令行参数
-	command := flag.String("cmd", "", "命令: sync-products, list-products, help")
+	command := flag.String("cmd", "", "命令: sync-products, list-products, sync-product-details, help")
 	configPath := flag.String("config", "config/config.json", "配置文件路径")
 	productType := flag.String("type", "", "产品类型: local, regional, global (可选)")
 	limit := flag.Int("limit", 0, "限制数量 (0 表示全部)")
@@ -320,7 +320,13 @@ func syncProductDetails(ctx context.Context, cfg *config.Config, db *data.Databa
 		}
 
 		// 转换为详情模型
-		detail, err := convertToDetailModel(product.ID, &resp.Data)
+		if resp.ProductDetail == nil {
+			fmt.Printf("  ✗ 产品详情为空\n")
+			totalFailed++
+			continue
+		}
+
+		detail, err := convertToDetailModel(product.ID, resp.ProductDetail)
 		if err != nil {
 			fmt.Printf("  ✗ 转换失败: %v\n", err)
 			totalFailed++
@@ -378,20 +384,30 @@ func convertToDetailModel(productID int, apiDetail *esim.ProductDetail) (*models
 		return nil, fmt.Errorf("序列化特性列表失败: %w", err)
 	}
 
+	// 计算数据大小字符串
+	dataSize := "无限流量"
+	if apiDetail.DataSize > 0 {
+		if apiDetail.DataSize >= 1024 {
+			dataSize = fmt.Sprintf("%.1fGB", float64(apiDetail.DataSize)/1024)
+		} else {
+			dataSize = fmt.Sprintf("%dMB", apiDetail.DataSize)
+		}
+	}
+
 	return &models.ProductDetail{
 		ProductID:    productID,
 		ThirdPartyID: apiDetail.ID,
 		Name:         apiDetail.Name,
 		Type:         apiDetail.Type,
 		Countries:    string(countriesJSON),
-		DataSize:     apiDetail.DataSize,
+		DataSize:     dataSize,
 		ValidDays:    apiDetail.ValidDays,
 		Price:        apiDetail.Price,
 		CostPrice:    apiDetail.CostPrice,
 		Description:  apiDetail.Description,
 		Features:     string(featuresJSON),
 		Status:       apiDetail.Status,
-		ApiCreatedAt: apiDetail.CreatedAt,
+		ApiCreatedAt: "", // API 响应中没有 createdAt 字段
 		SyncedAt:     time.Now(),
 	}, nil
 }
