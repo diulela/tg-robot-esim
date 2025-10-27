@@ -318,17 +318,26 @@ func (h *ProductsHandler) buildProductListKeyboard(products []esim.Product, prod
 	return tgbotapi.NewInlineKeyboardMarkup(rows...)
 }
 
-// showProductDetail 显示产品详情（从产品详情表获取）
+// showProductDetail 显示产品详情（优先从数据库获取，降级到API）
 func (h *ProductsHandler) showProductDetail(ctx context.Context, message *tgbotapi.Message, productID int) error {
-	// 从产品详情表获取详细信息
-	productDetail, err := h.productDetailRepo.GetByProductID(ctx, productID)
-	if err != nil {
-		h.logger.Error("Failed to get product detail: %v", err)
-		return h.sendError(message.Chat.ID, "产品详情不存在")
-	}
+	var text string
+	var err error
 
-	// 构建详情文本
-	text := h.formatProductDetailFromDetailDB(productDetail)
+	// 首先尝试从产品详情表获取
+	productDetail, err := h.productDetailRepo.GetByProductID(ctx, productID)
+	if err == nil && productDetail != nil {
+		h.logger.Debug("Got product detail from database for product %d", productID)
+		text = h.formatProductDetailFromDetailDB(productDetail)
+	} else {
+		h.logger.Debug("Product detail not found in database for product %d, trying API", productID)
+
+		// 从数据库获取失败，尝试从API获取
+		text, err = h.getProductDetailFromAPI(ctx, productID)
+		if err != nil {
+			h.logger.Error("Failed to get product detail from API: %v", err)
+			return h.sendError(message.Chat.ID, "产品详情不存在")
+		}
+	}
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
@@ -340,6 +349,118 @@ func (h *ProductsHandler) showProductDetail(ctx context.Context, message *tgbota
 	)
 
 	return h.editOrSendMessage(message, text, keyboard)
+}
+
+// getProductDetailFromAPI 从API获取产品详情
+func (h *ProductsHandler) getProductDetailFromAPI(ctx context.Context, productID int) (string, error) {
+	// 首先从产品表获取基本信息，以获取第三方ID
+	product, err := h.productRepo.GetByID(ctx, productID)
+	if err != nil {
+		return "", fmt.Errorf("product not found: %w", err)
+	}
+
+	// 提取第三方ID
+	thirdPartyID := extractThirdPartyIDFromString(product.ThirdPartyID)
+	if thirdPartyID == 0 {
+		return "", fmt.Errorf("invalid third party ID: %s", product.ThirdPartyID)
+	}
+
+	// 调用API获取详情
+	resp, err := h.esimService.GetProduct(ctx, thirdPartyID)
+	if err != nil {
+		return "", fmt.Errorf("API call failed: %w", err)
+	}
+
+	if !resp.Success || resp.ProductDetail == nil {
+		return "", fmt.Errorf("API returned no product detail")
+	}
+
+	// 格式化API返回的详情
+	return h.formatProductDetailFromAPI(resp.ProductDetail), nil
+}
+
+// extractThirdPartyIDFromString 从字符串中提取第三方ID
+func extractThirdPartyIDFromString(thirdPartyID string) int {
+	// 如果是 "product-123" 格式，提取数字
+	if strings.HasPrefix(thirdPartyID, "product-") {
+		idStr := strings.TrimPrefix(thirdPartyID, "product-")
+		if id, err := strconv.Atoi(idStr); err == nil {
+			return id
+		}
+	}
+	// 尝试直接转换
+	if id, err := strconv.Atoi(thirdPartyID); err == nil {
+		return id
+	}
+	return 0
+}
+
+// formatProductDetailFromAPI 格式化API返回的产品详情
+func (h *ProductsHandler) formatProductDetailFromAPI(detail *esim.ProductDetail) string {
+	text := fmt.Sprintf("📱 *%s*\n\n", escapeMarkdown(detail.Name))
+
+	// 产品类型
+	typeText := map[string]string{
+		"local":    "🏠 本地",
+		"regional": "🌏 区域",
+		"global":   "🌍 全球",
+	}
+	if t, ok := typeText[detail.Type]; ok {
+		text += fmt.Sprintf("类型: %s\n", t)
+	}
+
+	// 国家列表
+	if len(detail.Countries) > 0 {
+		text += "🗺️ 支持国家: "
+		if len(detail.Countries) <= 5 {
+			countryNames := make([]string, len(detail.Countries))
+			for i, c := range detail.Countries {
+				countryNames[i] = c.CN
+			}
+			text += strings.Join(countryNames, "、")
+		} else {
+			countryNames := make([]string, 5)
+			for i := 0; i < 5; i++ {
+				countryNames[i] = detail.Countries[i].CN
+			}
+			text += strings.Join(countryNames, "、")
+			text += fmt.Sprintf(" 等%d个国家", len(detail.Countries))
+		}
+		text += "\n"
+	}
+
+	// 流量和有效期
+	dataSize := "无限流量"
+	if detail.DataSize > 0 {
+		if detail.DataSize >= 1024 {
+			dataSize = fmt.Sprintf("%.1fGB", float64(detail.DataSize)/1024)
+		} else {
+			dataSize = fmt.Sprintf("%dMB", detail.DataSize)
+		}
+	}
+	text += fmt.Sprintf("📊 流量: %s\n", dataSize)
+	text += fmt.Sprintf("⏰ 有效期: %d天\n", detail.ValidDays)
+
+	// 价格（只显示零售价，单位 USDT）
+	text += fmt.Sprintf("\n💰 价格: *%.2f USDT*\n", detail.Price)
+
+	// 产品描述
+	if detail.Description != "" {
+		text += fmt.Sprintf("\n📝 描述:\n%s\n", detail.Description)
+	}
+
+	// 产品特性
+	if len(detail.Features) > 0 {
+		text += "\n✨ 特性:\n"
+		for _, feature := range detail.Features {
+			text += fmt.Sprintf("  • %s\n", feature)
+		}
+	}
+
+	// 添加数据来源标识
+	text += "\n_数据来源: 实时API_"
+
+	return text
 }
 
 // formatProductDetailFromDetailDB 格式化产品详情消息（从产品详情表）
@@ -389,6 +510,10 @@ func (h *ProductsHandler) formatProductDetailFromDetailDB(detail *models.Product
 			text += fmt.Sprintf("  • %s\n", feature)
 		}
 	}
+
+	// 添加数据来源标识和同步时间
+	text += fmt.Sprintf("\n_数据来源: 本地缓存 (同步时间: %s)_",
+		detail.SyncedAt.Format("01-02 15:04"))
 
 	return text
 }
