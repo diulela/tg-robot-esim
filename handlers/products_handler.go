@@ -102,29 +102,17 @@ func (h *ProductsHandler) GetDescription() string {
 	return "浏览 eSIM 产品"
 }
 
-// showAsiaProducts 显示亚洲产品列表（编辑消息）
+// showAsiaProducts 显示亚洲产品列表（编辑消息）- 多消息卡片模式
 func (h *ProductsHandler) showAsiaProducts(ctx context.Context, message *tgbotapi.Message, page int) error {
-	products, total, err := h.getAsiaProducts(ctx, page, 5)
-	if err != nil {
-		h.logger.Error("Failed to get Asia products: %v", err)
-		return h.sendError(message.Chat.ID, "获取产品列表失败")
-	}
+	// 删除旧消息
+	deleteMsg := tgbotapi.NewDeleteMessage(message.Chat.ID, message.MessageID)
+	h.bot.Send(deleteMsg)
 
-	if len(products) == 0 {
-		return h.sendError(message.Chat.ID, "暂无产品")
-	}
-
-	// 构建消息文本
-	text := h.buildAsiaProductListText(products, page, total, 5)
-
-	// 构建键盘
-	keyboard := h.buildAsiaProductKeyboard(products, page, total, 5)
-
-	// 编辑消息
-	return h.editOrSendMessage(message, text, keyboard)
+	// 使用新消息方式显示
+	return h.showAsiaProductsNew(ctx, message.Chat.ID, page)
 }
 
-// showAsiaProductsNew 显示亚洲产品列表（新消息）
+// showAsiaProductsNew 显示亚洲产品列表（新消息）- 每个产品一条消息
 func (h *ProductsHandler) showAsiaProductsNew(ctx context.Context, chatID int64, page int) error {
 	products, total, err := h.getAsiaProducts(ctx, page, 5)
 	if err != nil {
@@ -136,101 +124,41 @@ func (h *ProductsHandler) showAsiaProductsNew(ctx context.Context, chatID int64,
 		return h.sendError(chatID, "暂无产品")
 	}
 
-	// 构建消息文本
-	text := h.buildAsiaProductListText(products, page, total, 5)
+	totalPages := int((total + 4) / 5)
 
-	// 构建键盘
-	keyboard := h.buildAsiaProductKeyboard(products, page, total, 5)
-
-	// 发送新消息
-	msg := tgbotapi.NewMessage(chatID, text)
-	msg.ParseMode = "Markdown"
-	msg.ReplyMarkup = keyboard
-
-	_, err = h.bot.Send(msg)
-	return err
-}
-
-// showProducts 显示产品列表（旧方法，已弃用，保留以备将来使用）
-func (h *ProductsHandler) showProducts(ctx context.Context, message *tgbotapi.Message, productType esim.ProductType, page int) error {
-	// 获取产品列表
-	resp, err := h.esimService.GetProducts(ctx, &esim.ProductParams{
-		Type:  productType,
-		Page:  page,
-		Limit: 5,
-	})
-
-	if err != nil {
-		h.logger.Error("Failed to get products: %v", err)
-		return h.sendError(message.Chat.ID, "获取产品列表失败")
+	// 1. 发送标题消息
+	headerText := h.buildProductListHeader(page, totalPages, int(total))
+	headerMsg := tgbotapi.NewMessage(chatID, headerText)
+	headerMsg.ParseMode = "HTML"
+	if _, err := h.bot.Send(headerMsg); err != nil {
+		h.logger.Error("Failed to send header: %v", err)
+		return err
 	}
 
-	if !resp.Success || len(resp.Message.Products) == 0 {
-		return h.sendError(message.Chat.ID, "暂无产品")
-	}
-
-	// 调试：打印第一个产品的详细信息
-	if len(resp.Message.Products) > 0 {
-		p := resp.Message.Products[0]
-		h.logger.Debug("First product details: ID=%d, Name=%s, DataSize=%d, ValidDays=%d, RetailPrice=%.2f, AgentPrice=%.2f, Countries=%d",
-			p.ID, p.Name, p.DataSize, p.ValidDays, p.RetailPrice, p.AgentPrice, len(p.Countries))
-	}
-
-	// 构建消息文本
-	text := h.buildProductListText(productType, resp.Message.Products, resp.Message.Pagination)
-
-	// 构建键盘
-	keyboard := h.buildProductListKeyboard(resp.Message.Products, productType, resp.Message.Pagination)
-
-	// 编辑或发送消息
-	return h.editOrSendMessage(message, text, keyboard)
-}
-
-// buildProductListText 构建产品列表文本
-func (h *ProductsHandler) buildProductListText(productType esim.ProductType, products []esim.Product, pagination esim.Pagination) string {
-	typeText := map[esim.ProductType]string{
-		esim.ProductTypeLocal:    "🏠 本地产品",
-		esim.ProductTypeRegional: "🌏 区域产品",
-		esim.ProductTypeGlobal:   "🌍 全球产品",
-	}
-
-	text := fmt.Sprintf("*%s*\n\n", typeText[productType])
-	text += fmt.Sprintf("📄 第 %d/%d 页 (共 %d 个产品)\n",
-		pagination.Page, pagination.TotalPages, pagination.Total)
-	text += "━━━━━━━━━━━━━━━━━━\n\n"
-
+	// 2. 为每个产品发送独立的卡片消息（带按钮）
 	for i, product := range products {
-		// 产品标题
-		text += fmt.Sprintf("*%d\\. %s*\n", i+1, escapeMarkdown(product.Name))
+		cardText := h.buildSingleProductCard(product, i+1)
+		cardKeyboard := h.buildSingleProductKeyboard(product.ID)
 
-		// 国家信息（简化显示）
-		if len(product.Countries) > 0 {
-			if len(product.Countries) == 1 {
-				text += fmt.Sprintf("🗺️ %s\n", product.Countries[0].CN)
-			} else if len(product.Countries) <= 3 {
-				countryNames := make([]string, len(product.Countries))
-				for j, country := range product.Countries {
-					countryNames[j] = country.CN
-				}
-				text += fmt.Sprintf("🗺️ %s\n", strings.Join(countryNames, "、"))
-			} else {
-				text += fmt.Sprintf("🗺️ %s、%s 等%d国\n",
-					product.Countries[0].CN, product.Countries[1].CN, len(product.Countries))
-			}
+		cardMsg := tgbotapi.NewMessage(chatID, cardText)
+		cardMsg.ParseMode = "HTML"
+		cardMsg.ReplyMarkup = cardKeyboard
+
+		if _, err := h.bot.Send(cardMsg); err != nil {
+			h.logger.Error("Failed to send product card %d: %v", i+1, err)
 		}
-
-		// 流量和有效期
-		text += fmt.Sprintf("📊 %s  ⏰ %d天\n",
-			formatDataSize(product.DataSize), product.ValidDays)
-
-		// 价格
-		text += fmt.Sprintf("💵 代理价: *$%.2f*  💰 零售价: $%.2f\n",
-			product.AgentPrice, product.RetailPrice)
-
-		text += "\n"
 	}
 
-	return text
+	// 3. 发送分页导航消息
+	navText := "<i>💡 点击产品卡片上的按钮查看详情或购买</i>"
+	navKeyboard := h.buildProductListNavigation(page, totalPages)
+
+	navMsg := tgbotapi.NewMessage(chatID, navText)
+	navMsg.ParseMode = "HTML"
+	navMsg.ReplyMarkup = navKeyboard
+
+	_, err = h.bot.Send(navMsg)
+	return err
 }
 
 // escapeMarkdown 转义 Markdown 特殊字符
@@ -395,38 +323,39 @@ func extractThirdPartyIDFromString(thirdPartyID string) int {
 	return 0
 }
 
-// formatProductDetailFromAPI 格式化API返回的产品详情
+// formatProductDetailFromAPI 格式化API返回的产品详情（使用 HTML 格式）
 func (h *ProductsHandler) formatProductDetailFromAPI(detail *esim.ProductDetail) string {
-	text := fmt.Sprintf("📱 *%s*\n\n", escapeMarkdown(detail.Name))
+	// 产品标题 - 使用大标题样式
+	text := fmt.Sprintf("<b>📱 %s</b>\n\n", escapeHTML(detail.Name))
 
-	// 产品类型
+	// 产品类型标签
 	typeText := map[string]string{
-		"local":    "🏠 本地",
-		"regional": "🌏 区域",
+		"local":    "� 本地",
+		"regional": " 区域",
 		"global":   "🌍 全球",
 	}
 	if t, ok := typeText[detail.Type]; ok {
-		text += fmt.Sprintf("类型: %s\n", t)
+		text += fmt.Sprintf("<blockquote><b>类型：</b>%s</blockquote>\n", t)
 	}
 
 	// 国家列表
 	if len(detail.Countries) > 0 {
-		text += "🗺️ 支持国家: "
+		text += "<blockquote><b>🗺️ 支持国家：</b>\n"
 		if len(detail.Countries) <= 5 {
 			countryNames := make([]string, len(detail.Countries))
 			for i, c := range detail.Countries {
 				countryNames[i] = c.CN
 			}
-			text += strings.Join(countryNames, "、")
+			text += strings.Join(countryNames, " • ")
 		} else {
 			countryNames := make([]string, 5)
 			for i := 0; i < 5; i++ {
 				countryNames[i] = detail.Countries[i].CN
 			}
-			text += strings.Join(countryNames, "、")
-			text += fmt.Sprintf(" 等%d个国家", len(detail.Countries))
+			text += strings.Join(countryNames, " • ")
+			text += fmt.Sprintf(" <i>等%d个国家</i>", len(detail.Countries))
 		}
-		text += "\n"
+		text += "</blockquote>\n"
 	}
 
 	// 流量和有效期
@@ -438,156 +367,88 @@ func (h *ProductsHandler) formatProductDetailFromAPI(detail *esim.ProductDetail)
 			dataSize = fmt.Sprintf("%dMB", detail.DataSize)
 		}
 	}
-	text += fmt.Sprintf("📊 流量: %s\n", dataSize)
-	text += fmt.Sprintf("⏰ 有效期: %d天\n", detail.ValidDays)
 
-	// 价格（只显示零售价，单位 USDT）
-	text += fmt.Sprintf("\n💰 价格: *%.2f USDT*\n", detail.Price)
+	text += "<blockquote>"
+	text += fmt.Sprintf("<b>📊 流量：</b><code>%s</code>\n", dataSize)
+	text += fmt.Sprintf("<b>⏰ 有效期：</b><code>%d天</code>", detail.ValidDays)
+	text += "</blockquote>\n"
+
+	// 价格 - 突出显示
+	text += fmt.Sprintf("\n<blockquote><b>💰 价格：</b><u><b>%.2f USDT</b></u></blockquote>\n", detail.Price)
 
 	// 产品描述
 	if detail.Description != "" {
-		text += fmt.Sprintf("\n📝 描述:\n%s\n", detail.Description)
+		text += fmt.Sprintf("\n<blockquote expandable><b>📝 产品描述</b>\n\n%s</blockquote>\n", escapeHTML(detail.Description))
 	}
 
 	// 产品特性
 	if len(detail.Features) > 0 {
-		text += "\n✨ 特性:\n"
+		text += "\n<blockquote><b>✨ 产品特性</b>\n"
 		for _, feature := range detail.Features {
-			text += fmt.Sprintf("  • %s\n", feature)
+			text += fmt.Sprintf("  • %s\n", escapeHTML(feature))
 		}
+		text += "</blockquote>\n"
 	}
 
 	// 添加数据来源标识
-	text += "\n_数据来源: 实时API_"
+	text += "\n<i>🔄 数据来源：实时API</i>"
 
 	return text
 }
 
-// formatProductDetailFromDetailDB 格式化产品详情消息（从产品详情表）
+// formatProductDetailFromDetailDB 格式化产品详情消息（从产品详情表，使用 HTML 格式）
 func (h *ProductsHandler) formatProductDetailFromDetailDB(detail *models.ProductDetail) string {
-	text := fmt.Sprintf("📱 *%s*\n\n", escapeMarkdown(detail.Name))
+	// 产品标题 - 使用大标题样式
+	text := fmt.Sprintf("<b>📱 %s</b>\n\n", escapeHTML(detail.Name))
 
-	// 产品类型
+	// 产品类型标签
 	typeText := map[string]string{
-		"local":    "🏠 本地",
-		"regional": "🌏 区域",
+		"local":    " 本地",
+		"regional": " 区域",
 		"global":   "🌍 全球",
 	}
 	if t, ok := typeText[detail.Type]; ok {
-		text += fmt.Sprintf("类型: %s\n", t)
+		text += fmt.Sprintf("<blockquote><b>类型：</b>%s</blockquote>\n", t)
 	}
 
 	// 解析国家列表
 	var countries []string
 	if err := json.Unmarshal([]byte(detail.Countries), &countries); err == nil && len(countries) > 0 {
-		text += "🗺️ 支持国家: "
+		text += "<blockquote><b>🗺️ 支持国家：</b>\n"
 		if len(countries) <= 5 {
-			text += strings.Join(countries, "、")
+			text += strings.Join(countries, " • ")
 		} else {
-			text += strings.Join(countries[:5], "、")
-			text += fmt.Sprintf(" 等%d个国家", len(countries))
+			text += strings.Join(countries[:5], " • ")
+			text += fmt.Sprintf(" <i>等%d个国家</i>", len(countries))
 		}
-		text += "\n"
+		text += "</blockquote>\n"
 	}
 
-	// 流量和有效期
-	text += fmt.Sprintf("📊 流量: %s\n", detail.DataSize)
-	text += fmt.Sprintf("⏰ 有效期: %d天\n", detail.ValidDays)
+	// 产品规格 - 使用表格式布局
+	text += "<blockquote>"
+	text += fmt.Sprintf("<b>📊 流量：</b><code>%s</code>\n", detail.DataSize)
+	text += fmt.Sprintf("<b>⏰ 有效期：</b><code>%d天</code>", detail.ValidDays)
+	text += "</blockquote>\n"
 
-	// 价格（只显示零售价，单位 USDT）
-	text += fmt.Sprintf("\n💰 价格: *%.2f USDT*\n", detail.Price)
+	// 价格 - 突出显示
+	text += fmt.Sprintf("\n<blockquote><b>💰 价格：</b><u><b>%.2f USDT</b></u></blockquote>\n", detail.Price)
 
 	// 产品描述
 	if detail.Description != "" {
-		text += fmt.Sprintf("\n📝 描述:\n%s\n", detail.Description)
+		text += fmt.Sprintf("\n<blockquote expandable><b>📝 产品描述</b>\n\n%s</blockquote>\n", escapeHTML(detail.Description))
 	}
 
 	// 解析特性列表
 	var features []string
 	if err := json.Unmarshal([]byte(detail.Features), &features); err == nil && len(features) > 0 {
-		text += "\n✨ 特性:\n"
+		text += "\n<blockquote><b>✨ 产品特性</b>\n"
 		for _, feature := range features {
-			text += fmt.Sprintf("  • %s\n", feature)
+			text += fmt.Sprintf("  • %s\n", escapeHTML(feature))
 		}
+		text += "</blockquote>\n"
 	}
-
-	// 添加数据来源标识和同步时间
-	text += fmt.Sprintf("\n_数据来源: 本地缓存 (同步时间: %s)_",
-		detail.SyncedAt.Format("01-02 15:04"))
 
 	return text
-}
-
-// searchProductsByCountry 按国家代码搜索产品
-func (h *ProductsHandler) searchProductsByCountry(ctx context.Context, chatID int64, countryCode string) error {
-	resp, err := h.esimService.GetProducts(ctx, &esim.ProductParams{
-		Country: countryCode,
-		Limit:   10,
-	})
-
-	if err != nil {
-		h.logger.Error("Failed to search products: %v", err)
-		return h.sendError(chatID, "搜索产品失败")
-	}
-
-	if !resp.Success || len(resp.Message.Products) == 0 {
-		text := fmt.Sprintf("未找到国家代码 *%s* 的产品\n\n", countryCode)
-		text += "请检查国家代码是否正确，或使用 /products 浏览所有产品"
-
-		msg := tgbotapi.NewMessage(chatID, text)
-		msg.ParseMode = "Markdown"
-		_, err := h.bot.Send(msg)
-		return err
-	}
-
-	text := fmt.Sprintf("🔍 *搜索结果: %s*\n\n", countryCode)
-	text += fmt.Sprintf("找到 %d 个产品\n", len(resp.Message.Products))
-	text += "━━━━━━━━━━━━━━━━━━\n\n"
-
-	for i, product := range resp.Message.Products {
-		text += fmt.Sprintf("*%d\\. %s*\n", i+1, escapeMarkdown(product.Name))
-		text += fmt.Sprintf("📊 %s  ⏰ %d天\n",
-			formatDataSize(product.DataSize), product.ValidDays)
-		text += fmt.Sprintf("💵 代理价: *$%.2f*  💰 零售价: $%.2f\n\n",
-			product.AgentPrice, product.RetailPrice)
-	}
-
-	var rows [][]tgbotapi.InlineKeyboardButton
-
-	// 每行2个按钮
-	for i := 0; i < len(resp.Message.Products); i += 2 {
-		var row []tgbotapi.InlineKeyboardButton
-
-		btn1 := tgbotapi.NewInlineKeyboardButtonData(
-			fmt.Sprintf("%d. 详情", i+1),
-			fmt.Sprintf("product_detail:%d", resp.Message.Products[i].ID),
-		)
-		row = append(row, btn1)
-
-		if i+1 < len(resp.Message.Products) {
-			btn2 := tgbotapi.NewInlineKeyboardButtonData(
-				fmt.Sprintf("%d. 详情", i+2),
-				fmt.Sprintf("product_detail:%d", resp.Message.Products[i+1].ID),
-			)
-			row = append(row, btn2)
-		}
-
-		rows = append(rows, row)
-	}
-
-	// 添加返回按钮
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("🔙 返回", "products_back"),
-	))
-
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(rows...)
-
-	msg := tgbotapi.NewMessage(chatID, text)
-	msg.ParseMode = "Markdown"
-	msg.ReplyMarkup = keyboard
-
-	_, err = h.bot.Send(msg)
-	return err
 }
 
 // startPurchase 开始购买流程
@@ -615,7 +476,7 @@ func (h *ProductsHandler) startPurchase(ctx context.Context, message *tgbotapi.M
 
 func (h *ProductsHandler) editOrSendMessage(message *tgbotapi.Message, text string, keyboard tgbotapi.InlineKeyboardMarkup) error {
 	editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, message.MessageID, text)
-	editMsg.ParseMode = "Markdown"
+	editMsg.ParseMode = "HTML"
 	editMsg.ReplyMarkup = &keyboard
 
 	_, err := h.bot.Send(editMsg)
@@ -666,6 +527,17 @@ func formatDataSize(sizeMB int) string {
 	return fmt.Sprintf("%dMB", sizeMB)
 }
 
+// escapeHTML 转义 HTML 特殊字符
+func escapeHTML(text string) string {
+	replacer := strings.NewReplacer(
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+		"\"", "&quot;",
+	)
+	return replacer.Replace(text)
+}
+
 // getAsiaProducts 获取亚洲产品列表
 func (h *ProductsHandler) getAsiaProducts(ctx context.Context, page, limit int) ([]*repository.ProductModel, int64, error) {
 	// 从数据库获取 type=regional 且 name 包含"亚洲"的产品
@@ -682,60 +554,79 @@ func (h *ProductsHandler) getAsiaProducts(ctx context.Context, page, limit int) 
 	return h.productRepo.List(ctx, params)
 }
 
-// buildAsiaProductListText 构建亚洲产品列表文本
+// buildAsiaProductListText 构建亚洲产品列表文本（使用 HTML 格式）
 func (h *ProductsHandler) buildAsiaProductListText(products []*repository.ProductModel, page int, total int64, limit int) string {
 	totalPages := int((total + int64(limit) - 1) / int64(limit))
 
-	text := "*🌏 亚洲区域产品*\n\n"
-	text += fmt.Sprintf("📄 第 %d/%d 页 (共 %d 个产品)\n",
+	text := "<b>🌏 亚洲区域产品</b>\n\n"
+	text += fmt.Sprintf("📄 第 <b>%d</b>/<b>%d</b> 页 (共 <b>%d</b> 个产品)\n",
 		page, totalPages, total)
 	text += "━━━━━━━━━━━━━━━━━━\n\n"
 
 	for i, product := range products {
-		// 产品标题
-		text += fmt.Sprintf("*%d\\. %s*\n", i+1, escapeMarkdown(product.Name))
+		// 产品卡片开始 - 使用引用块样式
+		text += "<blockquote>"
 
-		// 流量和有效期
-		text += fmt.Sprintf("📊 %s  ⏰ %d天\n",
-			formatDataSize(product.DataSize), product.ValidDays)
+		// 产品标题 - 加粗并使用 emoji
+		text += fmt.Sprintf("<b>%d. 📱 %s</b>\n\n", i+1, escapeHTML(product.Name))
 
-		// 价格（只显示零售价，单位改为 USDT）
-		text += fmt.Sprintf("💰 价格: *%.2f USDT*\n", product.Price)
+		// 产品信息 - 使用表格式布局
+		text += fmt.Sprintf("📊 <b>流量：</b><code>%s</code>  ", formatDataSize(product.DataSize))
+		text += fmt.Sprintf("⏰ <b>有效期：</b><code>%d天</code>\n", product.ValidDays)
 
-		text += "\n"
+		// 价格 - 突出显示
+		text += fmt.Sprintf("\n💰 <b>价格：</b><u>%.2f USDT</u>", product.Price)
+
+		text += "</blockquote>\n\n"
 	}
+
+	text += "<i>💡 点击下方按钮查看产品详情</i>"
 
 	return text
 }
 
-// buildAsiaProductKeyboard 构建亚洲产品键盘
-func (h *ProductsHandler) buildAsiaProductKeyboard(products []*repository.ProductModel, page int, total int64, limit int) tgbotapi.InlineKeyboardMarkup {
+// buildProductListHeader 构建产品列表标题
+func (h *ProductsHandler) buildProductListHeader(page, totalPages, total int) string {
+	text := "<b>🌏 亚洲区域产品</b>\n\n"
+	text += fmt.Sprintf("📄 第 <b>%d</b>/<b>%d</b> 页 (共 <b>%d</b> 个产品)\n",
+		page, totalPages, total)
+	text += "━━━━━━━━━━━━━━━━━━"
+	return text
+}
+
+// buildSingleProductCard 构建单个产品卡片（独立消息）
+func (h *ProductsHandler) buildSingleProductCard(product *repository.ProductModel, index int) string {
+	text := "<blockquote expandable>"
+
+	// 产品标题
+	text += fmt.Sprintf("<b>📱 %s</b>\n", escapeHTML(product.Name))
+	text += "━━━━━━━━━━━━━━━━\n\n"
+
+	// 产品规格
+	text += fmt.Sprintf("📊 <b>流量：</b><code>%s</code>\n", formatDataSize(product.DataSize))
+	text += fmt.Sprintf("⏰ <b>有效期：</b><code>%d天</code>\n\n", product.ValidDays)
+
+	// 价格 - 突出显示
+	text += fmt.Sprintf("💰 <b>价格：</b><u><b>%.2f USDT</b></u>", product.Price)
+
+	text += "</blockquote>"
+
+	return text
+}
+
+// buildSingleProductKeyboard 构建单个产品的按钮
+func (h *ProductsHandler) buildSingleProductKeyboard(productID int) tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📖 查看详情", fmt.Sprintf("product_detail:%d", productID)),
+			tgbotapi.NewInlineKeyboardButtonData("🛒 立即购买", fmt.Sprintf("product_buy:%d", productID)),
+		),
+	)
+}
+
+// buildProductListNavigation 构建产品列表导航按钮
+func (h *ProductsHandler) buildProductListNavigation(page, totalPages int) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
-
-	totalPages := int((total + int64(limit) - 1) / int64(limit))
-
-	// 产品按钮 - 每行2个
-	for i := 0; i < len(products); i += 2 {
-		var row []tgbotapi.InlineKeyboardButton
-
-		// 第一个按钮
-		btn1 := tgbotapi.NewInlineKeyboardButtonData(
-			fmt.Sprintf("%d. 详情", i+1),
-			fmt.Sprintf("product_detail:%d", products[i].ID),
-		)
-		row = append(row, btn1)
-
-		// 第二个按钮（如果存在）
-		if i+1 < len(products) {
-			btn2 := tgbotapi.NewInlineKeyboardButtonData(
-				fmt.Sprintf("%d. 详情", i+2),
-				fmt.Sprintf("product_detail:%d", products[i+1].ID),
-			)
-			row = append(row, btn2)
-		}
-
-		rows = append(rows, row)
-	}
 
 	// 分页按钮
 	if totalPages > 1 {
