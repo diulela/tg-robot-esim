@@ -89,7 +89,7 @@ func (h *ProductsHandler) GetHandlerName() string {
 // HandleCommand 处理命令
 func (h *ProductsHandler) HandleCommand(ctx context.Context, message *tgbotapi.Message) error {
 	// 直接显示亚洲产品列表
-	return h.showAsiaProducts(ctx, message, 1)
+	return h.showAsiaProductsNew(ctx, message.Chat.ID, 1)
 }
 
 // GetCommand 获取处理的命令名称
@@ -122,6 +122,33 @@ func (h *ProductsHandler) showAsiaProducts(ctx context.Context, message *tgbotap
 
 	// 编辑消息
 	return h.editOrSendMessage(message, text, keyboard)
+}
+
+// showAsiaProductsNew 显示亚洲产品列表（新消息）
+func (h *ProductsHandler) showAsiaProductsNew(ctx context.Context, chatID int64, page int) error {
+	products, total, err := h.getAsiaProducts(ctx, page, 100)
+	if err != nil {
+		h.logger.Error("Failed to get Asia products: %v", err)
+		return h.sendError(chatID, "获取产品列表失败")
+	}
+
+	if len(products) == 0 {
+		return h.sendError(chatID, "暂无产品")
+	}
+
+	// 构建消息文本
+	text := h.buildAsiaProductListText(products, page, total, 100)
+
+	// 构建键盘
+	keyboard := h.buildAsiaProductKeyboard(products, page, total, 100)
+
+	// 发送新消息
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = "Markdown"
+	msg.ReplyMarkup = keyboard
+
+	_, err = h.bot.Send(msg)
+	return err
 }
 
 // escapeMarkdown 转义 Markdown 特殊字符
@@ -346,6 +373,27 @@ func (h *ProductsHandler) formatProductDetailFromDetailDB(detail *models.Product
 		detail.SyncedAt.Format("01-02 15:04"))
 
 	return text
+}
+
+// promptProductSelection 提示用户输入产品编号
+func (h *ProductsHandler) promptProductSelection(ctx context.Context, message *tgbotapi.Message) error {
+	text := "<b>🔍 选择产品</b>\n\n"
+	text += "请回复您想查看的产品编号\n"
+	text += "例如：回复 <code>1</code> 查看产品1的详情\n\n"
+	text += "<i>💡 提示：直接输入数字即可</i>"
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 返回产品列表", "products_back"),
+		),
+	)
+
+	editMsg := tgbotapi.NewEditMessageText(message.Chat.ID, message.MessageID, text)
+	editMsg.ParseMode = "HTML"
+	editMsg.ReplyMarkup = &keyboard
+
+	_, err := h.bot.Send(editMsg)
+	return err
 }
 
 // startPurchase 开始购买流程
