@@ -65,6 +65,9 @@ func (h *InlineHandler) HandleInlineQuery(ctx context.Context, query *tgbotapi.I
 		InlineQueryID: query.ID,
 		Results:       results,
 		CacheTime:     300, // 缓存5分钟
+		// 添加"切换到私聊"按钮
+		SwitchPMText:      "💬 打开机器人对话",
+		SwitchPMParameter: "inline_products",
 	}
 
 	_, err = h.bot.Request(config)
@@ -284,7 +287,7 @@ func (h *InlineHandler) buildInlineProductListText(products []*repository.Produc
 			formatDataSize(product.DataSize), product.ValidDays, product.Price)
 	}
 
-	text += "<i>💡 点击下方按钮查看详情或购买</i>"
+	text += "<i>💡 点击下方按钮操作，或点击上方「💬 打开机器人对话」获得完整功能</i>"
 	return text
 }
 
@@ -314,6 +317,11 @@ func (h *InlineHandler) buildInlineProductListKeyboard(products []*repository.Pr
 	// 添加快速操作按钮
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("🔍 选择产品", "product_select"),
+	))
+
+	// 添加"在私聊中操作"按钮
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("💬 在私聊中操作", "open_private_chat"),
 	))
 
 	return tgbotapi.NewInlineKeyboardMarkup(rows...)

@@ -36,6 +36,13 @@ func (h *StartHandler) HandleCommand(ctx context.Context, message *tgbotapi.Mess
 		return fmt.Errorf("failed to ensure user exists: %w", err)
 	}
 
+	// 检查是否有深度链接参数
+	args := message.CommandArguments()
+	if args == "inline_products" {
+		// 用户从 Inline Mode 切换过来，发送欢迎消息并引导到产品列表
+		return h.handleInlineProductsDeepLink(ctx, message.Chat.ID)
+	}
+
 	// 使用对话服务处理 start 命令
 	response, err := h.dialogService.ProcessMessage(ctx, userID, "/start")
 	if err != nil {
@@ -44,6 +51,34 @@ func (h *StartHandler) HandleCommand(ctx context.Context, message *tgbotapi.Mess
 
 	// 发送响应
 	return h.sendResponse(message.Chat.ID, response)
+}
+
+// handleInlineProductsDeepLink 处理从 Inline Mode 切换过来的用户
+func (h *StartHandler) handleInlineProductsDeepLink(ctx context.Context, chatID int64) error {
+	text := "<b>🎉 欢迎使用 eSIM 机器人！</b>\n\n"
+	text += "您刚才在 Inline Mode 中浏览产品，现在可以在这里进行更多操作：\n\n"
+	text += "• 📱 查看完整产品列表\n"
+	text += "• 🛒 购买 eSIM 产品\n"
+	text += "• 💰 管理钱包和订单\n"
+	text += "• 🔍 搜索特定产品\n\n"
+	text += "<i>点击下方按钮开始浏览产品！</i>"
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🛍️ 浏览产品", "products_back"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("ℹ️ 帮助", "help"),
+			tgbotapi.NewInlineKeyboardButtonData("📞 联系客服", "contact"),
+		),
+	)
+
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = "HTML"
+	msg.ReplyMarkup = keyboard
+
+	_, err := h.bot.Send(msg)
+	return err
 }
 
 // GetCommand 获取处理的命令名称

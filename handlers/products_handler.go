@@ -94,6 +94,9 @@ func (h *ProductsHandler) HandleCallback(ctx context.Context, callback *tgbotapi
 				return h.startPurchaseToUser(ctx, userID, productID)
 			}
 		}
+	case "open_private_chat":
+		// 引导用户到私聊窗口
+		return h.guideToPrivateChat(ctx, callback.From.ID)
 	}
 
 	return nil
@@ -509,6 +512,34 @@ func (h *ProductsHandler) startPurchaseToUser(ctx context.Context, userID int64,
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("❌ 取消", fmt.Sprintf("product_detail:%d", productID)),
+		),
+	)
+
+	msg := tgbotapi.NewMessage(userID, text)
+	msg.ParseMode = "HTML"
+	msg.ReplyMarkup = keyboard
+
+	_, err := h.bot.Send(msg)
+	return err
+}
+
+// guideToPrivateChat 引导用户到私聊窗口
+func (h *ProductsHandler) guideToPrivateChat(ctx context.Context, userID int64) error {
+	text := "<b>💬 欢迎来到私聊窗口！</b>\n\n"
+	text += "在这里您可以：\n"
+	text += "• 🛍️ 浏览完整产品列表\n"
+	text += "• 🛒 购买 eSIM 产品\n"
+	text += "• 💰 管理订单和钱包\n"
+	text += "• 📞 获得客服支持\n\n"
+	text += "<i>点击下方按钮开始操作！</i>"
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🛍️ 浏览产品", "products_back"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("ℹ️ 帮助", "help"),
+			tgbotapi.NewInlineKeyboardButtonData("📞 联系客服", "contact"),
 		),
 	)
 
