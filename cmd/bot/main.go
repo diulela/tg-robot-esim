@@ -143,28 +143,10 @@ func main() {
 		log.Fatalf("Failed to register rate limit middleware: %v", err)
 	}
 
-	// 注册命令处理器
-	startHandler := handlers.NewStartHandler(telegramBot.GetAPI(), db.GetUserRepository(), dialogService)
-	if err := registry.RegisterCommandHandler(startHandler); err != nil {
-		appLogger.Error("Failed to register start handler: %v", err)
-		log.Fatalf("Failed to register start handler: %v", err)
-	}
-
-	helpHandler := handlers.NewHelpHandler(telegramBot.GetAPI(), dialogService)
-	if err := registry.RegisterCommandHandler(helpHandler); err != nil {
-		appLogger.Error("Failed to register help handler: %v", err)
-		log.Fatalf("Failed to register help handler: %v", err)
-	}
-
-	menuHandler := handlers.NewMenuHandler(telegramBot.GetAPI(), menuService)
-	if err := registry.RegisterCommandHandler(menuHandler); err != nil {
-		appLogger.Error("Failed to register menu handler: %v", err)
-		log.Fatalf("Failed to register menu handler: %v", err)
-	}
-
-	// 注册产品处理器（如果 eSIM 服务已配置）
+	// 先创建产品处理器（如果 eSIM 服务已配置）
+	var productsHandler *handlers.ProductsHandler
 	if esimService != nil {
-		productsHandler := handlers.NewProductsHandler(
+		productsHandler = handlers.NewProductsHandler(
 			telegramBot.GetAPI(),
 			esimService,
 			db.GetProductRepository(),
@@ -192,6 +174,25 @@ func main() {
 		}
 
 		appLogger.Info("Products and inline handlers registered successfully")
+	}
+
+	// 注册命令处理器
+	startHandler := handlers.NewStartHandler(telegramBot.GetAPI(), db.GetUserRepository(), dialogService, productsHandler)
+	if err := registry.RegisterCommandHandler(startHandler); err != nil {
+		appLogger.Error("Failed to register start handler: %v", err)
+		log.Fatalf("Failed to register start handler: %v", err)
+	}
+
+	helpHandler := handlers.NewHelpHandler(telegramBot.GetAPI(), dialogService)
+	if err := registry.RegisterCommandHandler(helpHandler); err != nil {
+		appLogger.Error("Failed to register help handler: %v", err)
+		log.Fatalf("Failed to register help handler: %v", err)
+	}
+
+	menuHandler := handlers.NewMenuHandler(telegramBot.GetAPI(), menuService)
+	if err := registry.RegisterCommandHandler(menuHandler); err != nil {
+		appLogger.Error("Failed to register menu handler: %v", err)
+		log.Fatalf("Failed to register menu handler: %v", err)
 	}
 
 	// 注册消息处理器

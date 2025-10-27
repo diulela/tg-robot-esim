@@ -82,7 +82,7 @@ func (h *ProductsHandler) HandleCallback(ctx context.Context, callback *tgbotapi
 				return h.showProductDetail(ctx, callback.Message, productID)
 			} else {
 				// 当 callback.Message 为 nil 时，发送新消息到用户的私聊
-				return h.showProductDetailToUser(ctx, callback.From.ID, productID)
+				return h.ShowProductDetailToUser(ctx, callback.From.ID, productID)
 			}
 		}
 	case "product_buy":
@@ -91,7 +91,7 @@ func (h *ProductsHandler) HandleCallback(ctx context.Context, callback *tgbotapi
 			if callback.Message != nil {
 				return h.startPurchase(ctx, callback.Message, userID, productID)
 			} else {
-				return h.startPurchaseToUser(ctx, userID, productID)
+				return h.StartPurchaseToUser(ctx, userID, productID)
 			}
 		}
 	case "open_private_chat":
@@ -235,8 +235,8 @@ func (h *ProductsHandler) showProductDetail(ctx context.Context, message *tgbota
 	return h.editOrSendMessage(message, text, keyboard)
 }
 
-// showProductDetailToUser 向用户发送产品详情（用于 callback.Message 为 nil 的情况）
-func (h *ProductsHandler) showProductDetailToUser(ctx context.Context, userID int64, productID int) error {
+// ShowProductDetailToUser 向用户发送产品详情（用于 callback.Message 为 nil 的情况）
+func (h *ProductsHandler) ShowProductDetailToUser(ctx context.Context, userID int64, productID int) error {
 	var text string
 	var err error
 
@@ -455,15 +455,8 @@ func (h *ProductsHandler) promptProductSelectionToUser(ctx context.Context, user
 	text += "例如：回复 <code>1</code> 查看产品1的详情\n\n"
 	text += "<i>💡 提示：直接输入数字即可</i>"
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 返回产品列表", "products_back"),
-		),
-	)
-
 	msg := tgbotapi.NewMessage(userID, text)
 	msg.ParseMode = "HTML"
-	msg.ReplyMarkup = keyboard
 
 	_, err := h.bot.Send(msg)
 	return err
@@ -490,8 +483,8 @@ func (h *ProductsHandler) startPurchase(ctx context.Context, message *tgbotapi.M
 	return h.editOrSendMessage(message, text, keyboard)
 }
 
-// startPurchaseToUser 向用户发送购买流程（用于 callback.Message 为 nil 的情况）
-func (h *ProductsHandler) startPurchaseToUser(ctx context.Context, userID int64, productID int) error {
+// StartPurchaseToUser 向用户发送购买流程（用于 callback.Message 为 nil 的情况）
+func (h *ProductsHandler) StartPurchaseToUser(ctx context.Context, userID int64, productID int) error {
 	text := "🛒 <b>开始购买流程</b>\n\n"
 	text += "请提供以下信息：\n"
 	text += "1. 客户邮箱地址（必填）\n"

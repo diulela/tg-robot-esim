@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -14,17 +15,19 @@ import (
 
 // StartHandler 处理 /start 命令
 type StartHandler struct {
-	bot           *tgbotapi.BotAPI
-	userRepo      repository.UserRepository
-	dialogService services.DialogService
+	bot             *tgbotapi.BotAPI
+	userRepo        repository.UserRepository
+	dialogService   services.DialogService
+	productsHandler *ProductsHandler // 添加 ProductsHandler 引用
 }
 
 // NewStartHandler 创建 Start 命令处理器
-func NewStartHandler(bot *tgbotapi.BotAPI, userRepo repository.UserRepository, dialogService services.DialogService) *StartHandler {
+func NewStartHandler(bot *tgbotapi.BotAPI, userRepo repository.UserRepository, dialogService services.DialogService, productsHandler *ProductsHandler) *StartHandler {
 	return &StartHandler{
-		bot:           bot,
-		userRepo:      userRepo,
-		dialogService: dialogService,
+		bot:             bot,
+		userRepo:        userRepo,
+		dialogService:   dialogService,
+		productsHandler: productsHandler,
 	}
 }
 
@@ -102,40 +105,48 @@ func (h *StartHandler) handleInlineProductsDeepLink(ctx context.Context, chatID 
 
 // handleProductDetailDeepLink 处理产品详情深度链接
 func (h *StartHandler) handleProductDetailDeepLink(ctx context.Context, chatID int64, productIDStr string) error {
-	text := "<b>📱 产品详情</b>\n\n"
-	text += fmt.Sprintf("正在为您加载产品 %s 的详细信息...\n\n", productIDStr)
-	text += "<i>请使用下方按钮查看完整产品信息</i>"
+	if h.productsHandler == nil {
+		// 产品服务未配置，显示友好提示
+		return h.sendServiceUnavailableMessage(ctx, chatID, "产品详情服务暂时不可用")
+	}
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📖 查看详情", fmt.Sprintf("product_detail:%s", productIDStr)),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🛍️ 浏览更多产品", "products_back"),
-		),
-	)
+	// 解析产品ID
+	productID, err := strconv.Atoi(productIDStr)
+	if err != nil {
+		return fmt.Errorf("invalid product ID: %s", productIDStr)
+	}
 
-	msg := tgbotapi.NewMessage(chatID, text)
-	msg.ParseMode = "HTML"
-	msg.ReplyMarkup = keyboard
-
-	_, err := h.bot.Send(msg)
-	return err
+	// 直接调用 ProductsHandler 的方法显示产品详情
+	return h.productsHandler.ShowProductDetailToUser(ctx, chatID, productID)
 }
 
 // handleProductBuyDeepLink 处理产品购买深度链接
 func (h *StartHandler) handleProductBuyDeepLink(ctx context.Context, chatID int64, productIDStr string) error {
-	text := "<b>🛒 购买产品</b>\n\n"
-	text += fmt.Sprintf("您选择购买产品 %s\n\n", productIDStr)
-	text += "<i>请使用下方按钮开始购买流程</i>"
+	if h.productsHandler == nil {
+		// 产品服务未配置，显示友好提示
+		return h.sendServiceUnavailableMessage(ctx, chatID, "购买服务暂时不可用")
+	}
+
+	// 解析产品ID
+	productID, err := strconv.Atoi(productIDStr)
+	if err != nil {
+		return fmt.Errorf("invalid product ID: %s", productIDStr)
+	}
+
+	// 直接调用 ProductsHandler 的方法开始购买流程
+	return h.productsHandler.StartPurchaseToUser(ctx, chatID, productID)
+}
+
+// sendServiceUnavailableMessage 发送服务不可用消息
+func (h *StartHandler) sendServiceUnavailableMessage(ctx context.Context, chatID int64, message string) error {
+	text := fmt.Sprintf("<b>⚠️ %s</b>\n\n", message)
+	text += "请稍后重试或联系客服获取帮助。\n\n"
+	text += "<i>您可以使用其他功能：</i>"
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🛒 立即购买", fmt.Sprintf("product_buy:%s", productIDStr)),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📖 查看详情", fmt.Sprintf("product_detail:%s", productIDStr)),
-			tgbotapi.NewInlineKeyboardButtonData("🛍️ 浏览更多", "products_back"),
+			tgbotapi.NewInlineKeyboardButtonData("ℹ️ 帮助", "help"),
+			tgbotapi.NewInlineKeyboardButtonData("📞 联系客服", "contact"),
 		),
 	)
 
