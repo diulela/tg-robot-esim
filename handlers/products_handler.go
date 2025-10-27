@@ -60,6 +60,9 @@ func (h *ProductsHandler) HandleCallback(ctx context.Context, callback *tgbotapi
 			page, _ := strconv.Atoi(parts[1])
 			return h.showAsiaProducts(ctx, callback.Message, page)
 		}
+	case "product_select":
+		// 用户点击"选择产品"按钮，提示输入产品编号
+		return h.promptProductSelection(ctx, callback.Message)
 	case "product_detail":
 		if len(parts) >= 2 {
 			productID, _ := strconv.Atoi(parts[1])
@@ -550,6 +553,11 @@ func (h *ProductsHandler) buildAsiaProductListText(products []*repository.Produc
 // buildAsiaProductKeyboard 构建亚洲产品键盘
 func (h *ProductsHandler) buildAsiaProductKeyboard(products []*repository.ProductModel, page int, total int64, limit int) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
+
+	// 选择按钮
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("我要购买！！！", "product_select"),
+	))
 
 	// 返回按钮
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
