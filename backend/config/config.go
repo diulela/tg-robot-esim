@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -161,6 +162,10 @@ func applyEnvironmentOverrides(config *Config) {
 		config.Telegram.BotToken = token
 	}
 
+	if miniAppURL := os.Getenv("MINIAPP_URL"); miniAppURL != "" {
+		config.Telegram.MiniAppURL = miniAppURL
+	}
+
 	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
 		config.Database.DSN = dsn
 	}
@@ -195,6 +200,13 @@ func applyEnvironmentOverrides(config *Config) {
 func (c *Config) Validate() error {
 	if c.Telegram.BotToken == "" || c.Telegram.BotToken == "${TELEGRAM_BOT_TOKEN}" {
 		return fmt.Errorf("telegram bot token is required")
+	}
+
+	// 验证 Mini App URL
+	if c.Telegram.MiniAppURL != "" && c.Telegram.MiniAppURL != "${MINIAPP_URL}" {
+		if !strings.HasPrefix(c.Telegram.MiniAppURL, "https://") {
+			return fmt.Errorf("mini app URL must use HTTPS protocol")
+		}
 	}
 
 	if c.Database.Type != "sqlite" && c.Database.Type != "mysql" {

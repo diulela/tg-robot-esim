@@ -178,7 +178,7 @@ func main() {
 	}
 
 	// 注册命令处理器
-	startHandler := botHandlers.NewStartHandler(telegramBot.GetAPI(), db.GetUserRepository(), dialogService, productsHandler)
+	startHandler := botHandlers.NewStartHandler(telegramBot.GetAPI(), db.GetUserRepository(), dialogService, productsHandler, cfg)
 	if err := registry.RegisterCommandHandler(startHandler); err != nil {
 		appLogger.Error("Failed to register start handler: %v", err)
 		log.Fatalf("Failed to register start handler: %v", err)
