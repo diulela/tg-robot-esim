@@ -1,8 +1,11 @@
 package bot
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -184,71 +187,103 @@ func (h *StartHandler) GetDescription() string {
 	return "开始使用机器人"
 }
 
-// buildMiniAppWelcomeMessage 构建 Mini App 欢迎消息
-func (h *StartHandler) buildMiniAppWelcomeMessage() (string, tgbotapi.InlineKeyboardMarkup, error) {
-	// 构建消息文本
-	var messageBuilder strings.Builder
+// WebAppKeyboard 自定义 WebApp 键盘结构
+type WebAppKeyboard struct {
+	InlineKeyboard [][]WebAppButton `json:"inline_keyboard"`
+}
 
-	// 添加主标题
-	messageBuilder.WriteString(fmt.Sprintf("<b>%s</b>\n\n", miniAppWelcomeContent.Title))
+// WebAppButton 自定义 WebApp 按钮结构
+type WebAppButton struct {
+	Text   string  `json:"text"`
+	WebApp *WebApp `json:"web_app,omitempty"`
+}
 
-	// 添加功能特色
-	for _, feature := range miniAppWelcomeContent.Features {
-		messageBuilder.WriteString(fmt.Sprintf("%s\n\n", feature))
-	}
+// WebApp 结构
+type WebApp struct {
+	URL string `json:"url"`
+}
 
-	// 添加设置完成信息
-	messageBuilder.WriteString(miniAppWelcomeContent.SetupInfo)
-
-	messageText := messageBuilder.String()
-
-	// 检查消息长度限制 (Telegram 限制为 4096 字符)
-	if len(messageText) > 4096 {
-		return "", tgbotapi.InlineKeyboardMarkup{}, fmt.Errorf("消息内容超过 Telegram 长度限制")
-	}
-
-	// 创建 Web App 按钮
-	keyboard, err := h.createWebAppKeyboard()
-	if err != nil {
-		return "", tgbotapi.InlineKeyboardMarkup{}, fmt.Errorf("创建 Web App 按钮失败: %w", err)
-	}
-
-	return messageText, keyboard, nil
+// SendMessageRequest 自定义发送消息请求结构
+type SendMessageRequest struct {
+	ChatID      int64          `json:"chat_id"`
+	Text        string         `json:"text"`
+	ParseMode   string         `json:"parse_mode,omitempty"`
+	ReplyMarkup WebAppKeyboard `json:"reply_markup"`
 }
 
 // createWebAppKeyboard 创建 Web App 键盘
-func (h *StartHandler) createWebAppKeyboard() (tgbotapi.InlineKeyboardMarkup, error) {
+func (h *StartHandler) createWebAppKeyboard() (WebAppKeyboard, error) {
 	// 检查 Mini App URL 配置
 	if h.config.Telegram.MiniAppURL == "" || h.config.Telegram.MiniAppURL == "${MINIAPP_URL}" {
-		return tgbotapi.InlineKeyboardMarkup{}, fmt.Errorf("mini App URL 未配置")
+		return WebAppKeyboard{}, fmt.Errorf("mini App URL 未配置")
 	}
 
-	// 创建 Web App 按钮 - 使用 URL 按钮作为临时替代
-	// TODO: 升级到支持 WebApp 的 telegram-bot-api 版本
-	button := tgbotapi.NewInlineKeyboardButtonURL(miniAppWelcomeContent.ButtonText, h.config.Telegram.MiniAppURL)
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(button),
-	)
+	// 创建 Web App 按钮
+	button := WebAppButton{
+		Text: miniAppWelcomeContent.ButtonText,
+		WebApp: &WebApp{
+			URL: h.config.Telegram.MiniAppURL,
+		},
+	}
+
+	keyboard := WebAppKeyboard{
+		InlineKeyboard: [][]WebAppButton{{button}},
+	}
 
 	return keyboard, nil
 }
 
+// sendWebAppMessage 发送包含 WebApp 按钮的消息
+func (h *StartHandler) sendWebAppMessage(chatID int64, text string, keyboard WebAppKeyboard) error {
+	// 构建请求
+	request := SendMessageRequest{
+		ChatID:      chatID,
+		Text:        text,
+		ParseMode:   "HTML",
+		ReplyMarkup: keyboard,
+	}
+
+	// 序列化为 JSON
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// 发送到 Telegram API
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", h.config.Telegram.BotToken)
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("telegram API returned status %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
 // sendMiniAppWelcome 发送 Mini App 欢迎界面
 func (h *StartHandler) sendMiniAppWelcome(ctx context.Context, chatID int64) error {
-	// 构建欢迎消息
-	messageText, keyboard, err := h.buildMiniAppWelcomeMessage()
+	// 构建欢迎消息文本
+	var messageBuilder strings.Builder
+	messageBuilder.WriteString(fmt.Sprintf("<b>%s</b>\n\n", miniAppWelcomeContent.Title))
+	for _, feature := range miniAppWelcomeContent.Features {
+		messageBuilder.WriteString(fmt.Sprintf("%s\n\n", feature))
+	}
+	messageBuilder.WriteString(miniAppWelcomeContent.SetupInfo)
+	messageText := messageBuilder.String()
+
+	// 创建 WebApp 键盘
+	keyboard, err := h.createWebAppKeyboard()
 	if err != nil {
-		// 如果构建失败，发送降级消息
+		// 如果创建 WebApp 键盘失败，发送降级消息
 		return h.sendFallbackMessage(ctx, chatID, "欢迎使用 eSIM 机器人！服务正在初始化中，请稍后重试。")
 	}
 
-	// 创建消息
-	msg := tgbotapi.NewMessage(chatID, messageText)
-	msg.ParseMode = "HTML"
-	msg.ReplyMarkup = keyboard
-
-	// 发送消息
-	if _, err := h.bot.Send(msg); err != nil {
+	// 发送包含 WebApp 按钮的消息
+	if err := h.sendWebAppMessage(chatID, messageText, keyboard); err != nil {
 		// 发送失败时的错误处理
 		return h.sendFallbackMessage(ctx, chatID, "消息发送失败，请重试 /start 命令。")
 	}
