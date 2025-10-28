@@ -13,8 +13,8 @@ services:
       - TRON_API_KEY=${TRON_API_KEY}
       - LOG_LEVEL=${LOG_LEVEL:-info}
     volumes:
-      - ../data:/root/data
-      - ../config:/root/config
+      - ../backend/data:/root/data
+      - ../backend/config:/root/config
     restart: unless-stopped
     networks:
       - miniapp-network

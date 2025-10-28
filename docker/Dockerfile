@@ -1,5 +1,5 @@
 # 多阶段构建 Dockerfile
-FROM golang:1.23.5-alpine AS builder
+FROM golang:1.24.2-alpine AS builder
 
 # 安装必要的包
 RUN apk add --no-cache git gcc musl-dev sqlite-dev
@@ -8,13 +8,13 @@ RUN apk add --no-cache git gcc musl-dev sqlite-dev
 WORKDIR /app
 
 # 复制 go mod 文件
-COPY go.mod go.sum ./
+COPY backend/go.mod backend/go.sum ./
 
 # 下载依赖
 RUN go mod download
 
-# 复制源代码
-COPY . .
+# 复制后端源代码
+COPY backend/ .
 
 # 构建应用
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/bot/main.go
@@ -35,11 +35,8 @@ WORKDIR /app
 # 从构建阶段复制二进制文件
 COPY --from=builder /app/main .
 
-# 复制配置文件模板
-COPY --from=builder /app/config/config.example.json ./config/
-
-# 创建数据目录
-RUN mkdir -p /app/data && \
+# 创建必要目录
+RUN mkdir -p /app/data /app/logs /app/config && \
     chown -R appuser:appgroup /app
 
 # 切换到非 root 用户

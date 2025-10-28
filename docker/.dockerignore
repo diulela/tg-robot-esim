@@ -1,0 +1,47 @@
+# Git 相关
+.git
+.gitignore
+
+# 开发工具
+.vscode
+.idea
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+*.tmp
+*.temp
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# Node.js (前端构建时排除)
+node_modules/
+npm-debug.log*
+
+# Go 相关
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# 环境变量文件
+.env
+.env.local
+.env.production
+
+# 构建产物
+dist/
+build/

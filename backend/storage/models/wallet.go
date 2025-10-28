@@ -16,6 +16,9 @@ type Wallet struct {
 	TotalExpense  string    `gorm:"type:decimal(20,8);default:'0'" json:"total_expense"`  // 总支出
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
+
+	// 关联
+	User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
 }
 
 // TableName 指定表名
