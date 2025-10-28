@@ -21,6 +21,7 @@ type Config struct {
 type TelegramConfig struct {
 	BotToken   string        `json:"bot_token"`
 	WebhookURL string        `json:"webhook_url"`
+	MiniAppURL string        `json:"miniapp_url"`
 	Timeout    time.Duration `json:"timeout"`
 	Debug      bool          `json:"debug"`
 }
@@ -102,6 +103,7 @@ func CreateDefaultConfig(configPath string) error {
 		Telegram: TelegramConfig{
 			BotToken:   "${TELEGRAM_BOT_TOKEN}",
 			WebhookURL: "",
+			MiniAppURL: "${MINIAPP_URL}",
 			Timeout:    60 * time.Second,
 			Debug:      false,
 		},

@@ -12,7 +12,6 @@ import (
 	"tg-robot-sim/config"
 	"tg-robot-sim/handlers"
 	botHandlers "tg-robot-sim/handlers/bot"
-	"tg-robot-sim/handlers/middleware"
 	"tg-robot-sim/pkg/bot"
 	"tg-robot-sim/pkg/logger"
 	"tg-robot-sim/pkg/tron"
@@ -132,14 +131,14 @@ func main() {
 	registry := telegramBot.GetRegistry()
 
 	// 注册日志中间件
-	loggingMiddleware := middleware.NewLoggingMiddleware(appLogger)
+	loggingMiddleware := handlers.NewLoggingMiddleware(appLogger)
 	if err := registry.RegisterMiddleware(loggingMiddleware); err != nil {
 		appLogger.Error("Failed to register logging middleware: %v", err)
 		log.Fatalf("Failed to register logging middleware: %v", err)
 	}
 
 	// 注册限流中间件
-	rateLimitMiddleware := middleware.NewRateLimitMiddleware(1 * time.Second)
+	rateLimitMiddleware := handlers.NewRateLimitMiddleware(1 * time.Second)
 	if err := registry.RegisterMiddleware(rateLimitMiddleware); err != nil {
 		appLogger.Error("Failed to register rate limit middleware: %v", err)
 		log.Fatalf("Failed to register rate limit middleware: %v", err)

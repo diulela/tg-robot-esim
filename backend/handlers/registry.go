@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
-	"tg-robot-sim/handlers/middleware"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -16,7 +15,7 @@ type Registry struct {
 	callbackHandlers []CallbackHandler
 	commandHandlers  map[string]CommandHandler
 	inlineHandlers   []InlineQueryHandler
-	middlewares      []middleware.Middleware
+	middlewares      []Middleware
 	mu               sync.RWMutex
 }
 
@@ -27,7 +26,7 @@ func NewRegistry() *Registry {
 		callbackHandlers: make([]CallbackHandler, 0),
 		commandHandlers:  make(map[string]CommandHandler),
 		inlineHandlers:   make([]InlineQueryHandler, 0),
-		middlewares:      make([]middleware.Middleware, 0),
+		middlewares:      make([]Middleware, 0),
 	}
 }
 
@@ -239,7 +238,7 @@ func (r *Registry) GetRegisteredCommands() []tgbotapi.BotCommand {
 }
 
 // RegisterMiddleware 注册中间件
-func (r *Registry) RegisterMiddleware(middleware middleware.Middleware) error {
+func (r *Registry) RegisterMiddleware(middleware Middleware) error {
 	if middleware == nil {
 		return fmt.Errorf("middleware cannot be nil")
 	}
@@ -252,13 +251,13 @@ func (r *Registry) RegisterMiddleware(middleware middleware.Middleware) error {
 }
 
 // applyMessageMiddlewares 应用消息中间件链
-func (r *Registry) applyMessageMiddlewares(ctx context.Context, message *tgbotapi.Message, handler middleware.MessageHandlerFunc) error {
+func (r *Registry) applyMessageMiddlewares(ctx context.Context, message *tgbotapi.Message, handler MessageHandlerFunc) error {
 	if len(r.middlewares) == 0 {
 		return handler(ctx, message)
 	}
 
 	// 构建中间件链
-	var chainHandler middleware.MessageHandlerFunc
+	var chainHandler MessageHandlerFunc
 	chainHandler = handler
 
 	// 从后往前构建链
@@ -274,13 +273,13 @@ func (r *Registry) applyMessageMiddlewares(ctx context.Context, message *tgbotap
 }
 
 // applyCallbackMiddlewares 应用回调中间件链
-func (r *Registry) applyCallbackMiddlewares(ctx context.Context, callback *tgbotapi.CallbackQuery, handler middleware.CallbackHandlerFunc) error {
+func (r *Registry) applyCallbackMiddlewares(ctx context.Context, callback *tgbotapi.CallbackQuery, handler CallbackHandlerFunc) error {
 	if len(r.middlewares) == 0 {
 		return handler(ctx, callback)
 	}
 
 	// 构建中间件链
-	var chainHandler middleware.CallbackHandlerFunc
+	var chainHandler CallbackHandlerFunc
 	chainHandler = handler
 
 	// 从后往前构建链

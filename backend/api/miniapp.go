@@ -1,4 +1,4 @@
-package miniapp
+package api
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 )
 
 // MiniAppHandler Mini App API 处理器
-type MiniAppHandler struct {
+type MiniAppApiService struct {
 	productService     services.ProductService
 	walletService      services.WalletService
 	orderService       services.OrderService
@@ -17,13 +17,13 @@ type MiniAppHandler struct {
 }
 
 // NewMiniAppHandler 创建 Mini App 处理器实例
-func NewMiniAppHandler(
+func NewMiniAppApiService(
 	productService services.ProductService,
 	walletService services.WalletService,
 	orderService services.OrderService,
 	transactionService services.TransactionService,
-) *MiniAppHandler {
-	return &MiniAppHandler{
+) *MiniAppApiService {
+	return &MiniAppApiService{
 		productService:     productService,
 		walletService:      walletService,
 		orderService:       orderService,
@@ -46,14 +46,14 @@ type ErrorResponse struct {
 }
 
 // sendJSON 发送 JSON 响应
-func (h *MiniAppHandler) sendJSON(w http.ResponseWriter, statusCode int, data interface{}) {
+func (h *MiniAppApiService) sendJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(data)
 }
 
 // sendSuccess 发送成功响应
-func (h *MiniAppHandler) sendSuccess(w http.ResponseWriter, data interface{}) {
+func (h *MiniAppApiService) sendSuccess(w http.ResponseWriter, data interface{}) {
 	response := APIResponse{
 		Code:    0,
 		Message: "success",
@@ -63,7 +63,7 @@ func (h *MiniAppHandler) sendSuccess(w http.ResponseWriter, data interface{}) {
 }
 
 // sendError 发送错误响应
-func (h *MiniAppHandler) sendError(w http.ResponseWriter, statusCode int, message string, details string) {
+func (h *MiniAppApiService) sendError(w http.ResponseWriter, statusCode int, message string, details string) {
 	response := ErrorResponse{
 		Code:    statusCode,
 		Message: message,
@@ -73,7 +73,7 @@ func (h *MiniAppHandler) sendError(w http.ResponseWriter, statusCode int, messag
 }
 
 // getUserIDFromContext 从上下文获取用户ID
-func (h *MiniAppHandler) getUserIDFromContext(r *http.Request) (int64, error) {
+func (h *MiniAppApiService) getUserIDFromContext(r *http.Request) (int64, error) {
 	// TODO: 从 Telegram Web App 初始化数据中提取用户ID
 	// 这里暂时从查询参数获取
 	userIDStr := r.URL.Query().Get("user_id")
@@ -90,7 +90,7 @@ func (h *MiniAppHandler) getUserIDFromContext(r *http.Request) (int64, error) {
 }
 
 // parseIntParam 解析整数参数
-func (h *MiniAppHandler) parseIntParam(r *http.Request, key string, defaultValue int) int {
+func (h *MiniAppApiService) parseIntParam(r *http.Request, key string, defaultValue int) int {
 	valueStr := r.URL.Query().Get(key)
 	if valueStr == "" {
 		return defaultValue
@@ -105,7 +105,7 @@ func (h *MiniAppHandler) parseIntParam(r *http.Request, key string, defaultValue
 }
 
 // RegisterRoutes 注册路由
-func (h *MiniAppHandler) RegisterRoutes(mux *http.ServeMux) {
+func (h *MiniAppApiService) RegisterRoutes(mux *http.ServeMux) {
 	// 产品相关
 	mux.HandleFunc("/api/miniapp/products", h.handleProducts)
 	mux.HandleFunc("/api/miniapp/products/", h.handleProductDetail)
@@ -123,7 +123,7 @@ func (h *MiniAppHandler) RegisterRoutes(mux *http.ServeMux) {
 }
 
 // handleProducts 处理产品列表请求
-func (h *MiniAppHandler) handleProducts(w http.ResponseWriter, r *http.Request) {
+func (h *MiniAppApiService) handleProducts(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed", "")
 		return
@@ -165,7 +165,7 @@ func (h *MiniAppHandler) handleProducts(w http.ResponseWriter, r *http.Request) 
 }
 
 // handleProductDetail 处理产品详情请求
-func (h *MiniAppHandler) handleProductDetail(w http.ResponseWriter, r *http.Request) {
+func (h *MiniAppApiService) handleProductDetail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed", "")
 		return
@@ -199,7 +199,7 @@ func (h *MiniAppHandler) handleProductDetail(w http.ResponseWriter, r *http.Requ
 }
 
 // handleWalletBalance 处理钱包余额请求
-func (h *MiniAppHandler) handleWalletBalance(w http.ResponseWriter, r *http.Request) {
+func (h *MiniAppApiService) handleWalletBalance(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed", "")
 		return
@@ -225,7 +225,7 @@ func (h *MiniAppHandler) handleWalletBalance(w http.ResponseWriter, r *http.Requ
 }
 
 // handleWalletRecharge 处理钱包充值请求
-func (h *MiniAppHandler) handleWalletRecharge(w http.ResponseWriter, r *http.Request) {
+func (h *MiniAppApiService) handleWalletRecharge(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed", "")
 		return
@@ -260,7 +260,7 @@ func (h *MiniAppHandler) handleWalletRecharge(w http.ResponseWriter, r *http.Req
 }
 
 // handlePurchase 处理购买请求
-func (h *MiniAppHandler) handlePurchase(w http.ResponseWriter, r *http.Request) {
+func (h *MiniAppApiService) handlePurchase(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed", "")
 		return
@@ -304,7 +304,7 @@ func (h *MiniAppHandler) handlePurchase(w http.ResponseWriter, r *http.Request) 
 }
 
 // handleOrders 处理订单列表请求
-func (h *MiniAppHandler) handleOrders(w http.ResponseWriter, r *http.Request) {
+func (h *MiniAppApiService) handleOrders(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed", "")
 		return
@@ -342,7 +342,7 @@ func (h *MiniAppHandler) handleOrders(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleTransactions 处理交易历史请求
-func (h *MiniAppHandler) handleTransactions(w http.ResponseWriter, r *http.Request) {
+func (h *MiniAppApiService) handleTransactions(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed", "")
 		return

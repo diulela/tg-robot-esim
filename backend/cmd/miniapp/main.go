@@ -10,9 +10,7 @@ import (
 	"time"
 
 	"tg-robot-sim/config"
-	"tg-robot-sim/handlers/middleware"
-	miniAppHandlers "tg-robot-sim/handlers/miniapp"
-	"tg-robot-sim/pkg/logger"
+	"tg-robot-sim/server"
 	"tg-robot-sim/services"
 	"tg-robot-sim/storage/data"
 )
@@ -60,7 +58,7 @@ func main() {
 	transactionService := services.NewTransactionService(db.GetTransactionRepository())
 
 	// 创建 HTTP 服务器
-	httpServer := setupHTTPServer(cfg, productService, walletService, orderService, transactionService)
+	httpServer := server.NewMiniAppHTTPServer(cfg, productService, walletService, orderService, transactionService)
 
 	// 启动服务器
 	go func() {
@@ -86,49 +84,4 @@ func main() {
 	}
 
 	log.Println("Server exited")
-}
-
-func setupHTTPServer(
-	cfg *config.Config,
-	productService services.ProductService,
-	walletService services.WalletService,
-	orderService services.OrderService,
-	transactionService services.TransactionService,
-) *http.Server {
-	mux := http.NewServeMux()
-
-	// 创建 Mini App 处理器
-	miniAppHandler := miniAppHandlers.NewMiniAppHandler(
-		productService,
-		walletService,
-		orderService,
-		transactionService,
-	)
-
-	// 注册路由
-	miniAppHandler.RegisterRoutes(mux)
-
-	// 静态文件服务（Mini App 前端）
-	fs := http.FileServer(http.Dir("miniapp/dist"))
-	mux.Handle("/miniapp/", http.StripPrefix("/miniapp/", fs))
-
-	// 初始化日志系统
-	appLogger, err := logger.NewLogger(&cfg.Logging)
-	if err != nil {
-		log.Fatalf("Failed to initialize logger: %v", err)
-	}
-	defer appLogger.Close()
-
-	// 应用中间件
-	var handler http.Handler = mux
-	handler = middleware.CORSMiddleware(handler)
-	handler = middleware.TelegramWebAppMiddleware(cfg.Telegram.BotToken)(handler)
-
-	return &http.Server{
-		Addr:         ":8080",
-		Handler:      handler,
-		ReadTimeout:  cfg.Server.ReadTimeout,
-		WriteTimeout: cfg.Server.WriteTimeout,
-		IdleTimeout:  cfg.Server.IdleTimeout,
-	}
 }
