@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  miniapp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.miniapp
+    ports:
+      - "8080:8080"
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - DATABASE_URL=${DATABASE_URL:-bot.db}
+      - TRON_API_KEY=${TRON_API_KEY}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ../data:/root/data
+      - ../config:/root/config
+    restart: unless-stopped
+    networks:
+      - miniapp-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../miniapp/dist:/usr/share/nginx/html/miniapp:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - miniapp
+    restart: unless-stopped
+    networks:
+      - miniapp-network
+
+networks:
+  miniapp-network:
+    driver: bridge

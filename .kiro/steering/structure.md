@@ -1,101 +1,136 @@
-# 项目结构和组织
+---
+inclusion: always
+---
 
-## 目录结构
+# 项目架构和开发规范
 
+## 项目概述
+
+这是一个基于 Telegram 的 eSIM 电商系统，包含：
+- **后端**: Go 语言开发的 Telegram Bot 和 HTTP API 服务
+- **前端**: Telegram Mini App (JavaScript/HTML/CSS)
+- **数据库**: SQLite/MySQL with GORM
+- **区块链**: TRON 网络 USDT-TRC20 支付集成
+
+## 项目结构规范
+
+### 后端目录结构 (backend/)
 ```
-tg-robot-sim/
+backend/
 ├── cmd/                    # 应用程序入口点
-│   └── bot/               # 机器人主程序
-│       └── main.go        # 主入口文件
+│   ├── bot/               # Telegram Bot 主程序
+│   └── miniapp/           # Mini App HTTP 服务器
 ├── config/                # 配置管理
-│   ├── config.go          # 配置结构定义
-│   ├── config.json        # 实际配置文件
-│   └── config.example.json # 配置模板
-├── docker/                # Docker 相关文件
-├── handlers/              # HTTP/Telegram 请求处理器
-│   ├── interfaces.go      # 处理器接口定义
-│   ├── registry.go        # 处理器注册
-│   ├── middleware.go      # 中间件
-│   └── *_handler.go       # 具体处理器实现
-├── pkg/                   # 可复用的公共包
-│   ├── bot/              # Bot 相关工具
-│   ├── logger/           # 日志工具
-│   ├── retry/            # 重试机制
-│   └── tron/             # TRON 区块链工具
-├── services/              # 业务逻辑层
-│   ├── interfaces.go      # 服务接口定义
-│   └── *_service.go       # 具体服务实现
+├── handlers/              # HTTP 和 Bot 请求处理器
+├── services/              # 业务逻辑层 (接口定义)
 ├── storage/               # 数据存储层
-├── utils/                 # 工具函数
-└── scripts/               # 构建和部署脚本
+│   ├── data/             # 数据库连接和迁移
+│   └── repository/       # 数据访问层
+├── pkg/                   # 可复用包和工具
+└── utils/                 # 通用工具函数
 ```
 
-## 架构模式
+### 前端目录结构 (miniapp/)
+```
+miniapp/
+├── src/
+│   ├── components/        # 可复用 UI 组件
+│   ├── pages/            # 页面组件
+│   ├── services/         # API 服务层
+│   └── utils/            # 前端工具函数
+├── styles/               # CSS 样式文件
+├── index.html           # 入口 HTML
+└── vite.config.js       # 构建配置
+```
+
+## 架构设计原则
 
 ### 分层架构
-1. **入口层** (`cmd/`): 应用程序启动和初始化
-2. **处理器层** (`handlers/`): 请求处理和路由
-3. **服务层** (`services/`): 业务逻辑实现
-4. **存储层** (`storage/`): 数据持久化
-5. **工具层** (`pkg/`, `utils/`): 可复用组件
+1. **表示层** (Handlers): 处理 HTTP 请求和 Telegram 消息
+2. **业务层** (Services): 核心业务逻辑，定义接口
+3. **数据层** (Repository): 数据访问抽象
+4. **存储层** (Storage): 数据库操作实现
 
-### 设计原则
-- **接口分离**: 每个模块都有对应的 `interfaces.go` 文件
-- **依赖注入**: 通过接口进行依赖管理
-- **单一职责**: 每个服务专注于特定业务领域
-- **模块化**: 功能按模块组织，便于维护和扩展
+### 依赖注入
+- 所有服务通过接口定义，支持依赖注入
+- 在 `main.go` 中组装所有依赖关系
+- 避免硬编码依赖，提高可测试性
 
-## 核心模块
+### 接口优先设计
+- 所有服务必须先定义接口 (在 `services/interfaces.go`)
+- 实现与接口分离，支持多种实现方式
+- 便于单元测试和模拟
 
-### 处理器模块 (`handlers/`)
-- `start_handler.go`: 启动命令处理
-- `help_handler.go`: 帮助命令处理
-- `message_handler.go`: 消息处理
-- `callback_handler.go`: 回调查询处理
-- `middleware.go`: 中间件逻辑
-- `registry.go`: 处理器注册管理
+## 开发工作流程
 
-### 服务模块 (`services/`)
-- `dialog_service.go`: 对话管理服务
-- `menu_service.go`: 菜单系统服务
-- `session_service.go`: 会话管理服务
-- `blockchain_service.go`: 区块链交易服务
-- `notification_service.go`: 通知服务
+### 新功能开发步骤
+1. **需求分析**: 明确功能需求和业务逻辑
+2. **接口设计**: 在 `services/interfaces.go` 定义服务接口
+3. **数据模型**: 在相应目录定义数据结构和数据库模型
+4. **服务实现**: 实现业务逻辑服务
+5. **处理器实现**: 创建 HTTP/Bot 请求处理器
+6. **路由注册**: 在相应的注册文件中添加路由
+7. **前端集成**: 实现前端页面和 API 调用
+8. **测试验证**: 进行功能测试和集成测试
 
-### 公共包 (`pkg/`)
-- `bot/`: Telegram Bot 相关工具
-- `logger/`: 日志记录工具
-- `retry/`: 重试机制实现
-- `tron/`: TRON 区块链集成
+### 代码提交规范
+- 每个功能模块独立提交
+- 提交信息使用中文，格式：`功能: 简短描述`
+- 确保代码通过 `go fmt` 和基本测试
 
-## 文件命名约定
+## 技术栈约定
 
-### Go 文件
-- 服务文件: `*_service.go`
-- 处理器文件: `*_handler.go`
-- 接口定义: `interfaces.go`
-- 测试文件: `*_test.go`
+### 后端技术栈
+- **语言**: Go 1.24.2+
+- **Web框架**: 标准库 `net/http`
+- **ORM**: GORM v1.30.0
+- **Telegram**: telegram-bot-api v5.5.1
+- **数据库**: SQLite (开发) / MySQL (生产)
 
-### 配置文件
-- 主配置: `config.json`
-- 配置模板: `config.example.json`
-- 环境配置: `.env`
+### 前端技术栈
+- **构建工具**: Vite 5.0+
+- **样式**: 原生 CSS (CSS变量 + Flexbox/Grid)
+- **JavaScript**: ES6+ 模块化
+- **Telegram SDK**: Telegram Web App API
 
-## 扩展指南
+### 部署和运维
+- **容器化**: Docker + Docker Compose
+- **反向代理**: Nginx
+- **环境管理**: 环境变量 + JSON 配置文件
 
-### 添加新处理器
-1. 在 `handlers/` 目录创建 `new_handler.go`
-2. 实现 `CommandHandler` 接口
-3. 在 `registry.go` 中注册处理器
+## 安全和性能规范
 
-### 添加新服务
-1. 在 `services/interfaces.go` 中定义接口
-2. 在 `services/` 目录创建 `new_service.go`
-3. 实现服务接口
-4. 在需要的处理器中注入服务
+### 安全要求
+- 所有敏感信息通过环境变量管理
+- API 接口必须验证 Telegram Web App 数据
+- 数据库操作必须防止 SQL 注入
+- 用户输入必须进行验证和清理
 
-### 添加新的可复用包
-1. 在 `pkg/` 目录创建新包目录
-2. 定义包的公共接口
-3. 实现具体功能
-4. 编写相应的测试
+### 性能要求
+- 数据库查询必须使用索引优化
+- API 响应时间控制在 200ms 内
+- 实现适当的缓存策略
+- 区块链交易采用异步处理
+
+### 错误处理
+- 所有函数必须返回错误信息
+- 使用结构化日志记录
+- 向用户提供友好的中文错误提示
+- 实现优雅的服务降级
+
+## 测试策略
+
+### 单元测试
+- 所有服务层必须有单元测试
+- 使用接口模拟进行隔离测试
+- 测试覆盖率目标 80%+
+
+### 集成测试
+- API 端点集成测试
+- 数据库操作测试
+- Telegram Bot 交互测试
+
+### 手动测试
+- Telegram 环境功能测试
+- 支付流程端到端测试
+- 用户体验测试
