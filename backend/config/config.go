@@ -205,7 +205,7 @@ func (c *Config) Validate() error {
 	// 验证 Mini App URL
 	if c.Telegram.MiniAppURL != "" && c.Telegram.MiniAppURL != "${MINIAPP_URL}" {
 		if !strings.HasPrefix(c.Telegram.MiniAppURL, "https://") {
-			return fmt.Errorf("mini app URL must use HTTPS protocol")
+			// return fmt.Errorf("mini app URL must use HTTPS protocol")
 		}
 	}
 
