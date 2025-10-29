@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -203,11 +202,11 @@ func (c *Config) Validate() error {
 	}
 
 	// 验证 Mini App URL
-	if c.Telegram.MiniAppURL != "" && c.Telegram.MiniAppURL != "${MINIAPP_URL}" {
-		if !strings.HasPrefix(c.Telegram.MiniAppURL, "https://") {
-			// return fmt.Errorf("mini app URL must use HTTPS protocol")
-		}
-	}
+	// if c.Telegram.MiniAppURL != "" && c.Telegram.MiniAppURL != "${MINIAPP_URL}" {
+	// 	if !strings.HasPrefix(c.Telegram.MiniAppURL, "https://") {
+	// 		return fmt.Errorf("mini app URL must use HTTPS protocol")
+	// 	}
+	// }
 
 	if c.Database.Type != "sqlite" && c.Database.Type != "mysql" {
 		return fmt.Errorf("unsupported database type: %s", c.Database.Type)
