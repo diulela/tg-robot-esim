@@ -1,0 +1,220 @@
+// API 和业务数据类型定义
+
+// 产品相关类型
+export interface Product {
+  id: string
+  name: string
+  description: string
+  price: number
+  currency: string
+  region: string
+  country: string
+  countryCode: string
+  dataAmount: string
+  validDays: number
+  coverageAreas: string[]
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+// 订单状态枚举
+export enum OrderStatus {
+  PENDING = 'pending',
+  PAID = 'paid',
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+  REFUNDED = 'refunded'
+}
+
+// 支付方式枚举
+export enum PaymentMethod {
+  USDT_TRC20 = 'usdt_trc20',
+  TELEGRAM_STARS = 'telegram_stars',
+  CREDIT_CARD = 'credit_card'
+}
+
+// 订单类型
+export interface Order {
+  id: string
+  orderNumber: string
+  productId: string
+  productName: string
+  amount: number
+  currency: string
+  status: OrderStatus
+  paymentMethod?: PaymentMethod
+  createdAt: string
+  paidAt?: string
+  completedAt?: string
+  esimInfo?: ESIMInfo
+  transactionHash?: string
+  refundReason?: string
+}
+
+// eSIM 信息类型
+export interface ESIMInfo {
+  iccid: string
+  activationCode: string
+  qrCode: string
+  apnType: 'manual' | 'automatic'
+  isRoaming: boolean
+  activatedAt?: string
+  expiresAt?: string
+  dataUsed?: number
+  dataRemaining?: number
+}
+
+// 区域类型
+export interface Region {
+  id: string
+  name: string
+  code: string
+  icon: string
+  countries: Country[]
+  isPopular: boolean
+  displayOrder: number
+}
+
+// 国家类型
+export interface Country {
+  id: string
+  name: string
+  code: string
+  flag: string
+  region: string
+  products: Product[]
+  isPopular: boolean
+}
+
+// 用户钱包类型
+export interface Wallet {
+  id: string
+  userId: string
+  balance: number
+  currency: string
+  frozenAmount: number
+  totalRecharge: number
+  totalSpent: number
+  createdAt: string
+  updatedAt: string
+}
+
+// 钱包交易类型
+export interface WalletTransaction {
+  id: string
+  walletId: string
+  type: 'recharge' | 'payment' | 'refund' | 'bonus'
+  amount: number
+  currency: string
+  status: 'pending' | 'completed' | 'failed'
+  description: string
+  orderId?: string
+  transactionHash?: string
+  createdAt: string
+  completedAt?: string
+}
+
+// API 响应基础类型
+export interface ApiResponse<T = any> {
+  success: boolean
+  data?: T
+  message?: string
+  error?: string
+  code?: number
+}
+
+// 分页响应类型
+export interface PaginatedResponse<T> {
+  items: T[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+  hasNext: boolean
+  hasPrev: boolean
+}
+
+// API 请求参数类型
+export interface ApiRequestParams {
+  [key: string]: string | number | boolean | undefined
+}
+
+// 产品查询参数
+export interface ProductQueryParams extends ApiRequestParams {
+  region?: string
+  country?: string
+  minPrice?: number
+  maxPrice?: number
+  dataAmount?: string
+  validDays?: number
+  page?: number
+  pageSize?: number
+  sortBy?: 'price' | 'validDays' | 'dataAmount' | 'createdAt'
+  sortOrder?: 'asc' | 'desc'
+}
+
+// 订单查询参数
+export interface OrderQueryParams extends ApiRequestParams {
+  status?: OrderStatus
+  startDate?: string
+  endDate?: string
+  page?: number
+  pageSize?: number
+  sortBy?: 'createdAt' | 'amount' | 'status'
+  sortOrder?: 'asc' | 'desc'
+}
+
+// 创建订单请求
+export interface CreateOrderRequest {
+  productId: string
+  paymentMethod: PaymentMethod
+  quantity?: number
+}
+
+// 钱包充值请求
+export interface WalletRechargeRequest {
+  amount: number
+  currency: string
+  paymentMethod: PaymentMethod
+}
+
+// 统计数据类型
+export interface DashboardStats {
+  totalOrders: number
+  pendingOrders: number
+  completedOrders: number
+  totalSpent: number
+  currency: string
+  orderTrends: {
+    period: string
+    count: number
+    change: number
+  }[]
+  recentOrders: Order[]
+}
+
+// 错误类型
+export interface ApiError {
+  code: string
+  message: string
+  details?: Record<string, any>
+  timestamp: string
+}
+
+// HTTP 错误状态码
+export enum HttpStatusCode {
+  OK = 200,
+  CREATED = 201,
+  NO_CONTENT = 204,
+  BAD_REQUEST = 400,
+  UNAUTHORIZED = 401,
+  FORBIDDEN = 403,
+  NOT_FOUND = 404,
+  CONFLICT = 409,
+  UNPROCESSABLE_ENTITY = 422,
+  INTERNAL_SERVER_ERROR = 500,
+  BAD_GATEWAY = 502,
+  SERVICE_UNAVAILABLE = 503
+}

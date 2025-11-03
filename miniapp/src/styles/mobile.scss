@@ -1,0 +1,160 @@
+// 移动端适配样式
+.mobile-container {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  
+  @media (max-width: 480px) {
+    padding: 0 12px;
+  }
+  
+  @media (min-width: 481px) {
+    padding: 0 16px;
+  }
+}
+
+// 安全区域适配
+.safe-area {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+// 触摸友好的交互元素
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  
+  &:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+    transition: all 0.1s ease;
+  }
+}
+
+// 渐变背景 (与原型图一致)
+.gradient-bg {
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #A855F7 100%);
+}
+
+.gradient-bg-subtle {
+  background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+}
+
+// 卡片阴影
+.card-shadow {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.card-shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+// 文字样式
+.text-gradient {
+  background: linear-gradient(135deg, #6366F1, #8B5CF6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+// 状态指示器
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+  
+  &.success {
+    background-color: #10B981;
+  }
+  
+  &.warning {
+    background-color: #F59E0B;
+  }
+  
+  &.error {
+    background-color: #EF4444;
+  }
+  
+  &.info {
+    background-color: #3B82F6;
+  }
+}
+
+// 加载动画
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// 页面过渡动画
+.page-enter-active,
+.page-leave-active {
+  transition: all 0.3s ease;
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.page-leave-to {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+// 底部导航适配
+.bottom-nav-spacer {
+  height: 80px; // 为底部导航留出空间
+}
+
+// 响应式字体大小
+.responsive-text {
+  @media (max-width: 360px) {
+    font-size: 0.875rem;
+  }
+  
+  @media (min-width: 361px) and (max-width: 480px) {
+    font-size: 1rem;
+  }
+  
+  @media (min-width: 481px) {
+    font-size: 1.125rem;
+  }
+}
+
+// 滚动条样式 (Webkit)
+.custom-scrollbar {
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 2px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 2px;
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.5);
+    }
+  }
+}
