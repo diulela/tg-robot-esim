@@ -1,7 +1,8 @@
 {
   "telegram": {
     "bot_token": "8402119481:AAEESFJ3MHnPi_7oPKbaoKkGnkHhX9-L1Q8",
-    "webhook_url": "https://tg.xigrocoltd.com",
+    "webhook_url": "",
+    "miniapp_url": "https://tg.xigrocoltd.com",
     "timeout": 60000000000,
     "debug": false
   },
