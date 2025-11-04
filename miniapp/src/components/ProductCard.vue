@@ -7,7 +7,7 @@
   >
     <div class="product-content">
       <!-- 商品图标 -->
-      <div class="product-icon">
+      <!-- <div class="product-icon">
         <v-img
           v-if="product.icon"
           :src="product.icon"
@@ -17,7 +17,7 @@
           cover
         />
         <v-icon v-else size="80" color="primary">mdi-sim</v-icon>
-      </div>
+      </div> -->
 
       <!-- 商品信息 -->
       <div class="product-info">
@@ -109,16 +109,16 @@ const handleBuy = () => {
 
 <style scoped>
 .product-card {
-  cursor: pointer;
+  /* cursor: pointer; */
   transition: all 0.3s ease;
   border-radius: 12px;
   overflow: hidden;
 }
 
-.product-card:hover {
+/* .product-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15) !important;
-}
+} */
 
 .product-card:active {
   transform: translateY(-2px);
