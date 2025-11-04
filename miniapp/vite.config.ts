@@ -23,7 +23,7 @@ export default defineConfig({
     port: 8082,
     host: true,
     open: true,
-    server: true
+    allowedHosts: true
   },
   build: {
     outDir: 'dist',
