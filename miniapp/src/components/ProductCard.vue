@@ -60,7 +60,7 @@
           <div class="price-section">
             <span class="current-price">${{ product.price.toFixed(2) }}</span>
             <span v-if="product.originalPrice && product.originalPrice > product.price" class="original-price">
-              ${{ product.originalPrice.toFixed(2) }}
+              {{ product.originalPrice.toFixed(2) }} USDT
             </span>
           </div>
           <v-btn
