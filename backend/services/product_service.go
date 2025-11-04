@@ -12,6 +12,7 @@ import (
 // ProductFilters 产品筛选条件
 type ProductFilters struct {
 	Type        string // local, regional, global
+	Country     string // 国家代码筛选
 	Search      string // 搜索关键词
 	IsHot       *bool  // 是否热门
 	IsRecommend *bool  // 是否推荐
@@ -51,6 +52,10 @@ func (s *productService) GetProducts(ctx context.Context, filters ProductFilters
 
 	if filters.Type != "" && filters.Type != "all" {
 		conditions["type"] = filters.Type
+	}
+
+	if filters.Country != "" {
+		conditions["country"] = filters.Country
 	}
 
 	if filters.IsHot != nil {
@@ -170,6 +175,10 @@ func (s *productService) CountProducts(ctx context.Context, filters ProductFilte
 
 	if filters.Type != "" && filters.Type != "all" {
 		conditions["type"] = filters.Type
+	}
+
+	if filters.Country != "" {
+		conditions["country"] = filters.Country
 	}
 
 	if filters.IsHot != nil {

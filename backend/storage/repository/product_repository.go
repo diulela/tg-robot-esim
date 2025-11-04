@@ -200,7 +200,15 @@ func (r *productRepository) FindByConditions(ctx context.Context, conditions map
 
 	// 应用条件
 	for key, value := range conditions {
-		query = query.Where(key+" = ?", value)
+		switch key {
+		case "country":
+			// 处理国家筛选，使用 LIKE 查询 JSON 字段
+			if countryCode, ok := value.(string); ok && countryCode != "" {
+				query = query.Where("countries LIKE ?", "%"+countryCode+"%")
+			}
+		default:
+			query = query.Where(key+" = ?", value)
+		}
 	}
 
 	// 排序
@@ -225,7 +233,15 @@ func (r *productRepository) Count(ctx context.Context, conditions map[string]int
 
 	// 应用条件
 	for key, value := range conditions {
-		query = query.Where(key+" = ?", value)
+		switch key {
+		case "country":
+			// 处理国家筛选，使用 LIKE 查询 JSON 字段
+			if countryCode, ok := value.(string); ok && countryCode != "" {
+				query = query.Where("countries LIKE ?", "%"+countryCode+"%")
+			}
+		default:
+			query = query.Where(key+" = ?", value)
+		}
 	}
 
 	err := query.Count(&count).Error

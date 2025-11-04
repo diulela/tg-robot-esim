@@ -204,27 +204,27 @@ const apiClient = new ApiClient()
 export const productApi = {
   // 获取产品列表
   async getProducts(params?: ProductQueryParams): Promise<PaginatedResponse<Product>> {
-    return apiClient.get('/products', params)
+    return apiClient.get('/miniapp/products', params)
   },
 
   // 获取产品详情
   async getProduct(id: string): Promise<Product> {
-    return apiClient.get(`/products/${id}`)
+    return apiClient.get(`/miniapp/products/${id}`)
   },
 
-  // 根据区域获取产品
-  async getProductsByRegion(region: string, params?: Omit<ProductQueryParams, 'region'>): Promise<PaginatedResponse<Product>> {
-    return apiClient.get(`/products/region/${region}`, params)
+  // 根据类型获取产品
+  async getProductsByType(type: string, params?: Omit<ProductQueryParams, 'type'>): Promise<PaginatedResponse<Product>> {
+    return apiClient.get('/miniapp/products', { ...params, type })
   },
 
   // 根据国家获取产品
   async getProductsByCountry(country: string, params?: Omit<ProductQueryParams, 'country'>): Promise<PaginatedResponse<Product>> {
-    return apiClient.get(`/products/country/${country}`, params)
+    return apiClient.get('/miniapp/products', { ...params, country })
   },
 
   // 搜索产品
   async searchProducts(query: string, params?: ProductQueryParams): Promise<PaginatedResponse<Product>> {
-    return apiClient.get('/products/search', { ...params, q: query })
+    return apiClient.get('/miniapp/products', { ...params, search: query })
   }
 }
 
@@ -232,32 +232,32 @@ export const productApi = {
 export const orderApi = {
   // 获取订单列表
   async getOrders(params?: OrderQueryParams): Promise<PaginatedResponse<Order>> {
-    return apiClient.get('/orders', params)
+    return apiClient.get('/miniapp/orders', params)
   },
 
   // 获取订单详情
   async getOrder(id: string): Promise<Order> {
-    return apiClient.get(`/orders/${id}`)
+    return apiClient.get(`/miniapp/orders/${id}`)
   },
 
-  // 创建订单
+  // 创建订单 (购买产品)
   async createOrder(data: CreateOrderRequest): Promise<Order> {
-    return apiClient.post('/orders', data)
+    return apiClient.post('/miniapp/purchase', data)
   },
 
   // 取消订单
   async cancelOrder(id: string, reason?: string): Promise<Order> {
-    return apiClient.patch(`/orders/${id}/cancel`, { reason })
+    return apiClient.patch(`/miniapp/orders/${id}/cancel`, { reason })
   },
 
   // 获取订单状态
   async getOrderStatus(id: string): Promise<{ status: string; updatedAt: string }> {
-    return apiClient.get(`/orders/${id}/status`)
+    return apiClient.get(`/miniapp/orders/${id}/status`)
   },
 
   // 重新支付订单
   async retryPayment(id: string): Promise<{ paymentUrl: string }> {
-    return apiClient.post(`/orders/${id}/retry-payment`)
+    return apiClient.post(`/miniapp/orders/${id}/retry-payment`)
   }
 }
 
@@ -301,24 +301,24 @@ export const regionApi = {
 
 // 钱包相关 API
 export const walletApi = {
-  // 获取钱包信息
+  // 获取钱包余额
   async getWallet(): Promise<Wallet> {
-    return apiClient.get('/wallet')
+    return apiClient.get('/miniapp/wallet/balance')
   },
 
-  // 获取钱包交易记录
-  async getTransactions(params?: { page?: number; pageSize?: number; type?: string }): Promise<PaginatedResponse<WalletTransaction>> {
-    return apiClient.get('/wallet/transactions', params)
+  // 获取交易记录
+  async getTransactions(params?: { limit?: number; offset?: number; type?: string }): Promise<PaginatedResponse<WalletTransaction>> {
+    return apiClient.get('/miniapp/transactions', params)
   },
 
   // 钱包充值
   async recharge(data: WalletRechargeRequest): Promise<{ paymentUrl: string; transactionId: string }> {
-    return apiClient.post('/wallet/recharge', data)
+    return apiClient.post('/miniapp/wallet/recharge', data)
   },
 
   // 获取充值状态
   async getRechargeStatus(transactionId: string): Promise<{ status: string; amount?: number }> {
-    return apiClient.get(`/wallet/recharge/${transactionId}/status`)
+    return apiClient.get(`/miniapp/wallet/recharge/${transactionId}/status`)
   }
 }
 

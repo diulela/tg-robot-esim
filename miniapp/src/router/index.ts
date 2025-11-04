@@ -44,12 +44,35 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/products',
     name: 'Products',
-    component: () => import('@/views/ProductListPage.vue'),
+    component: () => import('@/views/ProductPage.vue'),
     meta: {
       title: '商品列表',
       showBackButton: true,
       showBottomNav: true,
       keepAlive: true
+    }
+  },
+  {
+    path: '/products/list/:countryCode',
+    name: 'ProductListSecondary',
+    component: () => import('@/views/ProductListSecondaryPage.vue'),
+    meta: {
+      title: '商品列表',
+      showBackButton: true,
+      showBottomNav: false,
+      keepAlive: false
+    },
+    props: true
+  },
+  // 保留旧路由以兼容
+  {
+    path: '/hot-products/:hotItemCode',
+    redirect: to => {
+      return {
+        name: 'ProductListSecondary',
+        params: { countryCode: to.params.hotItemCode },
+        query: to.query
+      }
     }
   },
   {
@@ -245,6 +268,14 @@ export function navigateToCountries(region?: string) {
 
 export function navigateToProducts() {
   return router.push({ name: 'Products' })
+}
+
+export function navigateToHotProducts(hotItemCode: string, hotItemName?: string) {
+  return router.push({ 
+    name: 'HotProductsSecondary', 
+    params: { hotItemCode },
+    query: hotItemName ? { name: hotItemName } : {}
+  })
 }
 
 export function navigateToProductDetail(id: string) {

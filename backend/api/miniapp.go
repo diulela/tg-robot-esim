@@ -133,16 +133,18 @@ func (h *MiniAppApiService) handleProducts(w http.ResponseWriter, r *http.Reques
 
 	// 获取查询参数
 	productType := r.URL.Query().Get("type")
+	country := r.URL.Query().Get("country")
 	search := r.URL.Query().Get("search")
 	limit := h.parseIntParam(r, "limit", 20)
 	offset := h.parseIntParam(r, "offset", 0)
 
 	// 构建筛选条件
 	filters := services.ProductFilters{
-		Type:   productType,
-		Search: search,
-		Limit:  limit,
-		Offset: offset,
+		Type:    productType,
+		Country: country,
+		Search:  search,
+		Limit:   limit,
+		Offset:  offset,
 	}
 
 	// 获取产品列表

@@ -6,16 +6,27 @@ export interface Product {
   name: string
   description: string
   price: number
+  originalPrice?: number // 原价（用于显示折扣）
   currency: string
   region: string
   country: string
   countryCode: string
   dataAmount: string
   validDays: number
+  coverage: string // 覆盖地区
   coverageAreas: string[]
+  features: string[] // 特性标签
+  icon?: string // 商品图标
   isActive: boolean
+  isPopular: boolean // 是否热门
   createdAt: string
   updatedAt: string
+}
+
+// 热门项类型（前端硬编码数据）
+export interface HotItem {
+  code: string // 国家/地区代码
+  name: string // 显示名称
 }
 
 // 订单状态枚举
@@ -143,12 +154,13 @@ export interface ApiRequestParams {
 
 // 产品查询参数
 export interface ProductQueryParams extends ApiRequestParams {
-  region?: string
-  country?: string
+  type?: string // local, regional, global
+  country?: string // 国家代码筛选
+  search?: string // 搜索关键词
   minPrice?: number
   maxPrice?: number
-  dataAmount?: string
-  validDays?: number
+  limit?: number // 每页数量
+  offset?: number // 偏移量
   page?: number
   pageSize?: number
   sortBy?: 'price' | 'validDays' | 'dataAmount' | 'createdAt'
@@ -168,8 +180,8 @@ export interface OrderQueryParams extends ApiRequestParams {
 
 // 创建订单请求
 export interface CreateOrderRequest {
-  productId: string
-  paymentMethod: PaymentMethod
+  product_id: number // 后端期望的是 number 类型的 product_id
+  paymentMethod?: PaymentMethod
   quantity?: number
 }
 

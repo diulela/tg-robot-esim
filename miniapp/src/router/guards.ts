@@ -287,10 +287,9 @@ async function preloadProductData(to: RouteLocationNormalized) {
   if (to.name === 'ProductDetail' && to.params.id) {
     // 预加载产品详情
     await productsStore.fetchProductById(to.params.id as string)
-  } else if (to.name === 'Products' && !productsStore.hasProducts) {
-    // 预加载产品列表
-    await productsStore.fetchProducts()
   }
+  // 移除 Products 页面的预加载，因为它现在是一个容器组件
+  // 各个栏目会在需要时自行加载数据
 }
 
 async function preloadRegionData(to: RouteLocationNormalized) {

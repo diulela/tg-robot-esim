@@ -50,8 +50,39 @@ export interface ProductCardProps {
 
 export interface ProductCardEmits {
   click: [product: Product]
+  buy: [product: Product]
   addToCart: [productId: string]
   viewDetails: [productId: string]
+}
+
+// 热门商品页面组件 Props
+export interface PageHeaderProps {
+  title: string
+  showBack: boolean
+}
+
+export interface PageHeaderEmits {
+  back: []
+}
+
+export interface ProductListProps {
+  products: Product[]
+  loading: boolean
+  error: string | null
+}
+
+export interface ProductListEmits {
+  buyProduct: [product: Product]
+  productClick: [product: Product]
+}
+
+export interface LoadMoreButtonProps {
+  loading: boolean
+  disabled?: boolean
+}
+
+export interface LoadMoreButtonEmits {
+  loadMore: []
 }
 
 export interface RegionGridProps {
