@@ -15,7 +15,7 @@ import type {
   CreateOrderRequest,
   WalletRechargeRequest,
   ApiError,
-  HttpStatusCode
+  // HttpStatusCode
 } from '@/types'
 
 // API 客户端配置
@@ -28,7 +28,7 @@ interface ApiClientConfig {
 
 // 默认配置
 const defaultConfig: ApiClientConfig = {
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
+  baseURL: import.meta.env["VITE_API_BASE_URL"] || 'http://localhost:8080/api',
   timeout: 10000,
   retryAttempts: 3,
   retryDelay: 1000
