@@ -68,15 +68,21 @@ func validateTelegramWebAppData(initData string, botToken string) bool {
 	sort.Strings(dataCheckArr)
 	dataCheckString := strings.Join(dataCheckArr, "\n")
 
-	// 计算密钥
-	secretKey := sha256.Sum256([]byte(botToken))
+	// 根据 Telegram 官方文档，计算密钥
+	// secret_key = HMAC_SHA256("WebAppData", bot_token)
+	h1 := hmac.New(sha256.New, []byte("WebAppData"))
+	h1.Write([]byte(botToken))
+	secretKey := h1.Sum(nil)
 
-	// 计算 HMAC
-	h := hmac.New(sha256.New, secretKey[:])
-	h.Write([]byte(dataCheckString))
-	calculatedHash := hex.EncodeToString(h.Sum(nil))
+	// 使用 secret_key 计算数据的 HMAC
+	h2 := hmac.New(sha256.New, secretKey)
+	h2.Write([]byte(dataCheckString))
+	calculatedHash := hex.EncodeToString(h2.Sum(nil))
 
-	fmt.Println("========中间件解析tg app data======", dataCheckString, calculatedHash, hash, botToken)
+	fmt.Println("========中间件解析tg app data======")
+	fmt.Println("Data check string:", dataCheckString)
+	fmt.Println("Calculated hash:", calculatedHash)
+	fmt.Println("Provided hash:", hash)
 
 	// 比较 hash
 	return calculatedHash == hash
