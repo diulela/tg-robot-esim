@@ -1,11 +1,11 @@
 <template>
   <div class="product-list-secondary-page">
     <!-- 页面头部 -->
-    <PageHeader
+    <!-- <PageHeader
       :title="pageTitle"
       :show-back="true"
       @back="handleBack"
-    />
+    /> -->
 
     <!-- 商品列表 -->
     <ProductList
