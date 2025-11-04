@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"net/url"
 	"sort"
@@ -27,8 +28,11 @@ func TelegramWebAppMiddleware(botToken string) func(http.Handler) http.Handler {
 				return
 			}
 
+			fmt.Println("========中间件解析tg app data======", initData)
+
 			// 验证初始化数据
 			if !validateTelegramWebAppData(initData, botToken) {
+				fmt.Println("========中间件解析tg app data======", "失败")
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}

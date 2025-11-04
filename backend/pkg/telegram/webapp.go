@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/url"
 )
 
@@ -32,6 +33,9 @@ type WebAppInitData struct {
 
 // ParseInitData 解析 Telegram Web App 初始化数据
 func ParseInitData(initData string) (*WebAppInitData, error) {
+
+	fmt.Println("========解析tg web app data=======", initData)
+
 	// 解析 URL 查询参数
 	values, err := url.ParseQuery(initData)
 	if err != nil {
