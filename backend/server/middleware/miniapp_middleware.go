@@ -32,7 +32,6 @@ func TelegramWebAppMiddleware(botToken string) func(http.Handler) http.Handler {
 
 			// 验证初始化数据
 			if !validateTelegramWebAppData(initData, botToken) {
-				fmt.Println("========中间件解析tg app data======", "失败")
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
@@ -76,6 +75,8 @@ func validateTelegramWebAppData(initData string, botToken string) bool {
 	h := hmac.New(sha256.New, secretKey[:])
 	h.Write([]byte(dataCheckString))
 	calculatedHash := hex.EncodeToString(h.Sum(nil))
+
+	fmt.Println("========中间件解析tg app data======", dataCheckString, calculatedHash, hash, botToken)
 
 	// 比较 hash
 	return calculatedHash == hash
