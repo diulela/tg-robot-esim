@@ -5,6 +5,10 @@ import router from './router'
 import { setupStore } from './stores'
 import { setupRouterGuards } from './router/guards'
 import vuetify from './plugins/vuetify'
+import { initVConsole } from './plugins/vconsole'
+
+// 初始化调试控制台（开发环境或 URL 参数 ?debug=true）
+initVConsole()
 
 // 创建 Vue 应用实例
 const app = createApp(App)
