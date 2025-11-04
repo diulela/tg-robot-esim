@@ -32,6 +32,7 @@ func TelegramWebAppMiddleware(botToken string) func(http.Handler) http.Handler {
 
 			// 验证初始化数据
 			if !validateTelegramWebAppData(initData, botToken) {
+				fmt.Println("========中间件解析tg app data======", "失败")
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
