@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -82,6 +83,7 @@ func (h *MiniAppApiService) getUserIDFromContext(r *http.Request) (int64, error)
 		initData = r.URL.Query().Get("init_data")
 	}
 
+	fmt.Println("====获取tg id ==========", initData)
 	// 如果有初始化数据，解析用户ID
 	if initData != "" {
 		userID, err := telegram.GetUserID(initData)
@@ -89,6 +91,8 @@ func (h *MiniAppApiService) getUserIDFromContext(r *http.Request) (int64, error)
 			return userID, nil
 		}
 	}
+
+	fmt.Println("====获取tg id ==========", "失败")
 
 	// 开发模式：从查询参数获取用户ID
 	userIDStr := r.URL.Query().Get("user_id")
@@ -138,6 +142,9 @@ func (h *MiniAppApiService) RegisterRoutes(mux *http.ServeMux) {
 
 // handleProducts 处理产品列表请求
 func (h *MiniAppApiService) handleProducts(w http.ResponseWriter, r *http.Request) {
+
+	fmt.Println("====获取产品列表 ==========")
+
 	if r.Method != http.MethodGet {
 		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed", "")
 		return
