@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"tg-robot-sim/pkg/telegram"
 	"tg-robot-sim/services"
 )
 
@@ -74,19 +75,32 @@ func (h *MiniAppApiService) sendError(w http.ResponseWriter, statusCode int, mes
 
 // getUserIDFromContext 从上下文获取用户ID
 func (h *MiniAppApiService) getUserIDFromContext(r *http.Request) (int64, error) {
-	// TODO: 从 Telegram Web App 初始化数据中提取用户ID
-	// 这里暂时从查询参数获取
+	// 从 Telegram Web App 初始化数据中提取用户ID
+	initData := r.Header.Get("X-Telegram-Init-Data")
+	if initData == "" {
+		// 开发模式：从查询参数获取
+		initData = r.URL.Query().Get("init_data")
+	}
+
+	// 如果有初始化数据，解析用户ID
+	if initData != "" {
+		userID, err := telegram.GetUserID(initData)
+		if err == nil && userID > 0 {
+			return userID, nil
+		}
+	}
+
+	// 开发模式：从查询参数获取用户ID
 	userIDStr := r.URL.Query().Get("user_id")
-	if userIDStr == "" {
-		return 0, nil
+	if userIDStr != "" {
+		userID, err := strconv.ParseInt(userIDStr, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return userID, nil
 	}
 
-	userID, err := strconv.ParseInt(userIDStr, 10, 64)
-	if err != nil {
-		return 0, err
-	}
-
-	return userID, nil
+	return 0, nil
 }
 
 // parseIntParam 解析整数参数
