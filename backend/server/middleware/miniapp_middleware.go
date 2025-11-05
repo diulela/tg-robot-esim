@@ -4,7 +4,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"net/http"
 	"net/url"
 	"sort"
@@ -28,11 +27,8 @@ func TelegramWebAppMiddleware(botToken string) func(http.Handler) http.Handler {
 				return
 			}
 
-			fmt.Println("========中间件解析tg app data======", initData)
-
 			// 验证初始化数据
 			if !validateTelegramWebAppData(initData, botToken) {
-				fmt.Println("========中间件解析tg app data======", "失败")
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
@@ -79,11 +75,6 @@ func validateTelegramWebAppData(initData string, botToken string) bool {
 	h2 := hmac.New(sha256.New, secretKey)
 	h2.Write([]byte(dataCheckString))
 	calculatedHash := hex.EncodeToString(h2.Sum(nil))
-
-	fmt.Println("========中间件解析tg app data======")
-	fmt.Println("Data check string:", dataCheckString)
-	fmt.Println("Calculated hash:", calculatedHash)
-	fmt.Println("Provided hash:", hash)
 
 	// 比较 hash
 	return calculatedHash == hash
