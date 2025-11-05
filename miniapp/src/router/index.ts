@@ -15,7 +15,7 @@ const routes: RouteRecordRaw[] = [
     name: 'Home',
     component: () => import('@/views/ProductPage.vue'),
     meta: {
-      title: '商品列表',
+      title: '商品',
       showBottomNav: true,
       keepAlive: true
     }
@@ -46,7 +46,7 @@ const routes: RouteRecordRaw[] = [
     name: 'Products',
     component: () => import('@/views/ProductPage.vue'),
     meta: {
-      title: '商品列表',
+      title: '商品',
       showBackButton: true,
       showBottomNav: true,
       keepAlive: true

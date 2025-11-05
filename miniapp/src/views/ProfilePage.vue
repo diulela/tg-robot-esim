@@ -2,22 +2,26 @@
   <div class="profile-page">
     <!-- 用户信息卡片 -->
     <div class="user-info-card">
-      <div class="user-avatar">
+      <div class="user-avatar" v-if="user.avatar || user.name">
         <img v-if="user.avatar" :src="user.avatar" :alt="user.name" />
-        <div v-else class="avatar-placeholder">{{ getAvatarText(user.name) }}</div>
+        <div v-else class="avatar-placeholder">
+          {{ getAvatarText(user.name) }}
+        </div>
       </div>
-      
       <div class="user-details">
-        <h2 class="user-name">{{ user.name || '未设置昵称' }}</h2>
+        <h2 class="user-name">
+          {{ user.name || '未设置昵称' }}
+          <span v-if="user.isPremium" class="premium-badge">⭐</span>
+        </h2>
         <p class="user-id">ID: {{ user.id }}</p>
         <div class="user-stats">
           <div class="stat-item">
-            <span class="stat-value">{{ user.orderCount || 0 }}</span>
-            <span class="stat-label">订单数</span>
+            <div class="stat-value">{{ orderStats.completed }}</div>
+            <div class="stat-label">已完成订单</div>
           </div>
           <div class="stat-item">
-            <span class="stat-value">¥{{ formatAmount(user.totalSpent || 0) }}</span>
-            <span class="stat-label">总消费</span>
+            <div class="stat-value">¥{{ formatAmount(orderStats.totalSpent) }}</div>
+            <div class="stat-label">累计消费</div>
           </div>
         </div>
       </div>
@@ -33,25 +37,17 @@
             <div class="menu-icon">💰</div>
             <div class="menu-content">
               <div class="menu-title">我的钱包</div>
-              <div class="menu-desc">余额：¥{{ formatAmount(user.balance || 0) }}</div>
+              <div class="menu-desc" v-if="!isLoadingBalance">余额：¥{{ formatAmount(balance) }}</div>
+              <div class="menu-desc" v-else>加载中...</div>
             </div>
             <div class="menu-arrow">›</div>
           </div>
-          
+
           <div class="menu-item" @click="goToOrders">
             <div class="menu-icon">📦</div>
             <div class="menu-content">
               <div class="menu-title">我的订单</div>
-              <div class="menu-desc">查看订单历史</div>
-            </div>
-            <div class="menu-arrow">›</div>
-          </div>
-          
-          <div class="menu-item" @click="editProfile">
-            <div class="menu-icon">👤</div>
-            <div class="menu-content">
-              <div class="menu-title">个人资料</div>
-              <div class="menu-desc">编辑个人信息</div>
+              <div class="menu-desc">{{ orderStats.total }} 个订单</div>
             </div>
             <div class="menu-arrow">›</div>
           </div>
@@ -62,29 +58,11 @@
       <div class="menu-section">
         <h3 class="section-title">应用设置</h3>
         <div class="menu-items">
-          <div class="menu-item" @click="goToSettings">
-            <div class="menu-icon">⚙️</div>
-            <div class="menu-content">
-              <div class="menu-title">设置</div>
-              <div class="menu-desc">通知、语言等设置</div>
-            </div>
-            <div class="menu-arrow">›</div>
-          </div>
-          
           <div class="menu-item" @click="goToHelp">
             <div class="menu-icon">❓</div>
             <div class="menu-content">
               <div class="menu-title">帮助中心</div>
               <div class="menu-desc">常见问题与客服</div>
-            </div>
-            <div class="menu-arrow">›</div>
-          </div>
-          
-          <div class="menu-item" @click="goToAbout">
-            <div class="menu-icon">ℹ️</div>
-            <div class="menu-content">
-              <div class="menu-title">关于我们</div>
-              <div class="menu-desc">版本信息与条款</div>
             </div>
             <div class="menu-arrow">›</div>
           </div>
@@ -103,16 +81,6 @@
             </div>
             <div class="menu-arrow">›</div>
           </div>
-          
-          <div class="menu-item" @click="feedback">
-            <div class="menu-icon">💬</div>
-            <div class="menu-content">
-              <div class="menu-title">意见反馈</div>
-              <div class="menu-desc">帮助我们改进</div>
-            </div>
-            <div class="menu-arrow">›</div>
-          </div>
-          
           <div class="menu-item danger" @click="logout">
             <div class="menu-icon">🚪</div>
             <div class="menu-content">
@@ -133,63 +101,70 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useOrdersStore } from '@/stores/orders'
 import { useAppStore } from '@/stores/app'
+import { walletApi } from '@/services/api'
 
 export default {
   name: 'ProfilePage',
   setup() {
     const router = useRouter()
     const userStore = useUserStore()
+    const ordersStore = useOrdersStore()
     const appStore = useAppStore()
-    
-    const user = ref({
-      id: '123456789',
-      name: '测试用户',
-      avatar: '',
-      orderCount: 5,
-      totalSpent: 299.50,
-      balance: 128.50
-    })
-    
+
+    const balance = ref(0)
+    const isLoadingBalance = ref(false)
     const appVersion = ref('1.0.0')
-    
+
+    // 从 userStore 获取用户信息
+    const user = computed(() => ({
+      id: userStore.telegramUser?.id?.toString() || '',
+      name: userStore.displayName || '未知用户',
+      avatar: userStore.avatarUrl || '',
+      isPremium: userStore.isPremium
+    }))
+
+    // 从 ordersStore 获取订单统计
+    const orderStats = computed(() => ordersStore.getOrderSummary())
+
     // 方法
     const formatAmount = (amount) => {
       return amount.toFixed(2)
     }
-    
+
     const getAvatarText = (name) => {
       if (!name) return '?'
       return name.charAt(0).toUpperCase()
     }
-    
+
     const goToWallet = () => {
       router.push({ name: 'Wallet' })
     }
-    
+
     const goToOrders = () => {
       router.push({ name: 'Orders' })
     }
-    
+
     const editProfile = () => {
       appStore.showInfo('个人资料编辑功能开发中')
     }
-    
+
     const goToSettings = () => {
       router.push({ name: 'Settings' })
     }
-    
+
     const goToHelp = () => {
       router.push({ name: 'Help' })
     }
-    
+
     const goToAbout = () => {
       router.push({ name: 'About' })
     }
-    
+
     const shareApp = () => {
       if (navigator.share) {
         navigator.share({
@@ -201,11 +176,11 @@ export default {
         appStore.showInfo('分享功能开发中')
       }
     }
-    
+
     const feedback = () => {
       appStore.showInfo('意见反馈功能开发中')
     }
-    
+
     const logout = () => {
       if (confirm('确定要退出登录吗？')) {
         userStore.logout()
@@ -213,26 +188,40 @@ export default {
         router.push({ name: 'Home' })
       }
     }
-    
+
     const loadUserData = async () => {
       try {
-        // 模拟加载用户数据
-        const userData = await userStore.getCurrentUser()
-        if (userData) {
-          user.value = { ...user.value, ...userData }
+        // 加载钱包余额
+        isLoadingBalance.value = true
+        const walletData = await walletApi.getWallet()
+        balance.value = walletData.balance || 0
+      } catch (error) {
+        console.error('加载钱包余额失败:', error)
+        balance.value = 0
+      } finally {
+        isLoadingBalance.value = false
+      }
+
+      try {
+        // 加载订单数据（如果还没有加载）
+        if (!ordersStore.hasOrders) {
+          await ordersStore.fetchOrders({ pageSize: 10 })
         }
       } catch (error) {
-        console.error('加载用户数据失败:', error)
+        console.error('加载订单数据失败:', error)
       }
     }
-    
+
     // 生命周期
     onMounted(() => {
       loadUserData()
     })
-    
+
     return {
       user,
+      balance,
+      isLoadingBalance,
+      orderStats,
       appVersion,
       formatAmount,
       getAvatarText,
@@ -301,6 +290,28 @@ export default {
   font-size: 20px;
   font-weight: bold;
   margin: 0 0 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.premium-badge {
+  font-size: 16px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scale(1.1);
+  }
 }
 
 .user-id {
@@ -430,15 +441,15 @@ export default {
     flex-direction: column;
     text-align: center;
   }
-  
+
   .user-stats {
     justify-content: center;
   }
-  
+
   .menu-item {
     padding: 12px 16px;
   }
-  
+
   .menu-icon {
     width: 36px;
     height: 36px;
