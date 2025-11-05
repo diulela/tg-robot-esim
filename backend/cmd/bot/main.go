@@ -214,17 +214,17 @@ func main() {
 
 	// 启动区块链监控（如果配置了钱包地址）
 	if cfg.Blockchain.WalletAddress != "" {
-		if err := blockchainService.MonitorAddress(cfg.Blockchain.WalletAddress); err != nil {
-			appLogger.Error("Failed to add wallet address to monitoring: %v", err)
-		} else {
-			appLogger.Info("Added wallet address to monitoring: %s", cfg.Blockchain.WalletAddress)
-		}
+		// if err := blockchainService.MonitorAddress(cfg.Blockchain.WalletAddress); err != nil {
+		// 	appLogger.Error("Failed to add wallet address to monitoring: %v", err)
+		// } else {
+		// 	appLogger.Info("Added wallet address to monitoring: %s", cfg.Blockchain.WalletAddress)
+		// }
 
-		if err := blockchainService.StartMonitoring(ctx); err != nil {
-			appLogger.Error("Failed to start blockchain monitoring: %v", err)
-		} else {
-			appLogger.Info("Blockchain monitoring started")
-		}
+		// if err := blockchainService.StartMonitoring(ctx); err != nil {
+		// 	appLogger.Error("Failed to start blockchain monitoring: %v", err)
+		// } else {
+		// 	appLogger.Info("Blockchain monitoring started")
+		// }
 	}
 
 	// 等待信号
