@@ -24,7 +24,6 @@ type Database struct {
 	config            *config.DatabaseConfig
 	userRepo          repository.UserRepository
 	sessionRepo       repository.UserSessionRepository
-	transactionRepo   repository.TransactionRepository
 	productRepo       repository.ProductRepository
 	productDetailRepo repository.ProductDetailRepository
 	walletRepo        repository.WalletRepository
@@ -95,7 +94,6 @@ func NewDatabase(cfg *config.DatabaseConfig) (*Database, error) {
 	// 初始化仓库
 	database.userRepo = repository.NewUserRepository(db)
 	database.sessionRepo = repository.NewUserSessionRepository(db)
-	database.transactionRepo = repository.NewTransactionRepository(db)
 	database.productRepo = repository.NewProductRepository(db)
 	database.productDetailRepo = repository.NewProductDetailRepository(db)
 	database.walletRepo = repository.NewWalletRepository(db)
@@ -116,9 +114,11 @@ func (d *Database) AutoMigrate() error {
 	return d.db.AutoMigrate(
 		&models.User{},
 		&models.UserSession{},
-		&models.Transaction{},
 		&models.Product{},
 		&models.ProductDetail{},
+		&models.Wallet{},
+		&models.Order{},
+		&models.RechargeOrder{},
 		&models.WalletHistory{},
 	)
 }
@@ -149,11 +149,6 @@ func (d *Database) GetUserRepository() repository.UserRepository {
 // GetSessionRepository 获取会话仓库
 func (d *Database) GetSessionRepository() repository.UserSessionRepository {
 	return d.sessionRepo
-}
-
-// GetTransactionRepository 获取交易仓库
-func (d *Database) GetTransactionRepository() repository.TransactionRepository {
-	return d.transactionRepo
 }
 
 // GetProductRepository 获取产品仓库

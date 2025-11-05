@@ -28,13 +28,11 @@ type blockchainService struct {
 // NewBlockchainService 创建区块链服务
 func NewBlockchainService(
 	tronClient *tron.Client,
-	txRepo repository.TransactionRepository,
 	config *config.BlockchainConfig,
 	logger Logger,
 ) BlockchainService {
 	return &blockchainService{
 		tronClient:   tronClient,
-		txRepo:       txRepo,
 		config:       config,
 		logger:       logger,
 		stopChan:     make(chan struct{}),

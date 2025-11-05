@@ -71,7 +71,7 @@ func main() {
 	tronClient := tron.NewClient(cfg.Blockchain.TronEndpoint, cfg.Blockchain.TronAPIKey, appLogger)
 
 	// 初始化区块链服务
-	blockchainService := services.NewBlockchainService(tronClient, db.GetTransactionRepository(), &cfg.Blockchain, appLogger)
+	blockchainService := services.NewBlockchainService(tronClient, &cfg.Blockchain, appLogger)
 
 	// 初始化 Telegram Bot
 	telegramBot, err := bot.NewBot(&cfg.Telegram, appLogger)

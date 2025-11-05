@@ -91,7 +91,7 @@ func main() {
 	appLogger.Info("TRON client initialized")
 
 	// 初始化区块链服务
-	blockchainService := services.NewBlockchainService(tronClient, db.GetTransactionRepository(), &cfg.Blockchain, appLogger)
+	blockchainService := services.NewBlockchainService(tronClient, &cfg.Blockchain, appLogger)
 	appLogger.Info("Blockchain service initialized")
 
 	// 初始化菜单服务
