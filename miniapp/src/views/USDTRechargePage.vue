@@ -36,11 +36,6 @@
         <span v-if="loading">创建订单中...</span>
         <span v-else>创建充值订单</span>
       </button>
-      
-      <!-- 测试按钮 -->
-      <button @click="testRouteJump" class="test-btn">
-        测试路由跳转
-      </button>
     </div>
 
     <!-- 充值说明 -->
@@ -447,25 +442,6 @@ export default {
 }
 
 .recharge-btn:not(:disabled):hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-.test-btn {
-  width: 100%;
-  padding: 12px;
-  background: #ff6b6b;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: bold;
-  cursor: pointer;
-  margin-top: 10px;
-  transition: all 0.2s ease;
-}
-
-.test-btn:hover {
   opacity: 0.9;
   transform: translateY(-1px);
 }

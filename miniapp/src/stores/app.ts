@@ -381,6 +381,39 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  // 便捷通知方法
+  const showSuccess = (message: string, duration = 3000): string => {
+    return showNotification({
+      type: 'success',
+      message,
+      duration
+    })
+  }
+
+  const showError = (message: string, duration = 5000): string => {
+    return showNotification({
+      type: 'error',
+      message,
+      duration
+    })
+  }
+
+  const showWarning = (message: string, duration = 4000): string => {
+    return showNotification({
+      type: 'warning',
+      message,
+      duration
+    })
+  }
+
+  const showInfo = (message: string, duration = 3000): string => {
+    return showNotification({
+      type: 'info',
+      message,
+      duration
+    })
+  }
+
   // 工具方法
   const getLanguageLabel = (langCode: string): string => {
     const labels: Record<string, string> = {
@@ -466,6 +499,10 @@ export const useAppStore = defineStore('app', () => {
     toggleTheme,
     setLanguage,
     showNotification,
+    showSuccess,
+    showError,
+    showWarning,
+    showInfo,
     removeNotification,
     clearNotifications,
     clearPersistentNotifications,
