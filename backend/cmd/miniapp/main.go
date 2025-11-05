@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"tg-robot-sim/config"
+	"tg-robot-sim/pkg/bot"
+	"tg-robot-sim/pkg/logger"
+	"tg-robot-sim/pkg/tron"
 	"tg-robot-sim/server"
 	"tg-robot-sim/services"
 	"tg-robot-sim/storage/data"
@@ -26,6 +29,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+
+	appLogger, err := logger.NewLogger(&cfg.Logging)
+	if err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+	defer appLogger.Close()
 
 	// 验证配置
 	if err := cfg.Validate(); err != nil {
@@ -58,8 +67,19 @@ func main() {
 	walletHistoryService := services.NewWalletHistoryService(db.GetWalletHistoryRepository())
 
 	// 创建模拟服务用于测试
-	blockchainService := services.NewMockBlockchainService()
-	notificationService := services.NewMockNotificationService()
+	// 初始化 TRON 客户端
+	tronClient := tron.NewClient(cfg.Blockchain.TronEndpoint, cfg.Blockchain.TronAPIKey, appLogger)
+
+	// 初始化区块链服务
+	blockchainService := services.NewBlockchainService(tronClient, db.GetTransactionRepository(), &cfg.Blockchain, appLogger)
+
+	// 初始化 Telegram Bot
+	telegramBot, err := bot.NewBot(&cfg.Telegram, appLogger)
+	if err != nil {
+		appLogger.Error("Failed to initialize bot: %v", err)
+		log.Fatalf("Failed to initialize bot: %v", err)
+	}
+	notificationService := services.NewNotificationService(telegramBot.GetAPI(), appLogger)
 
 	// 创建充值服务
 	rechargeService := services.NewRechargeService(
