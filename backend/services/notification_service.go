@@ -3,6 +3,8 @@ package services
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -110,4 +112,88 @@ func (n *notificationService) SendTransactionNotification(ctx context.Context, u
 	)
 
 	return n.SendMessage(ctx, userID, message)
+}
+
+// SendRechargeSuccessNotification 发送充值成功通知
+func (n *notificationService) SendRechargeSuccessNotification(ctx context.Context, userID int64, amount string, orderNo string) error {
+	message := fmt.Sprintf(
+		"🎉 <b>充值成功通知</b>\n\n"+
+			"💰 <b>充值金额:</b> %s USDT\n"+
+			"📋 <b>订单号:</b> <code>%s</code>\n"+
+			"⏰ <b>到账时间:</b> %s\n\n"+
+			"您的钱包余额已更新，可以立即使用！",
+		amount,
+		orderNo,
+		time.Now().Format("2006-01-02 15:04:05"),
+	)
+
+	// 创建内联键盘
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("💳 查看钱包", "wallet:balance"),
+			tgbotapi.NewInlineKeyboardButtonData("📋 充值历史", "wallet:history"),
+		),
+	)
+
+	msg := tgbotapi.NewMessage(userID, message)
+	msg.ParseMode = tgbotapi.ModeHTML
+	msg.ReplyMarkup = keyboard
+
+	// 发送消息（带重试机制）
+	err := n.sendMessageWithRetry(ctx, msg, 2)
+	if err != nil {
+		n.logger.Error("发送充值成功通知失败: user_id=%d, error=%v", userID, err)
+		return err
+	}
+
+	n.logger.Info("充值成功通知已发送: user_id=%d, order_no=%s", userID, orderNo)
+	return nil
+}
+
+// sendMessageWithRetry 带重试机制的消息发送
+func (n *notificationService) sendMessageWithRetry(ctx context.Context, msg tgbotapi.MessageConfig, maxRetries int) error {
+	var lastErr error
+
+	for i := 0; i < maxRetries; i++ {
+		_, err := n.bot.Send(msg)
+		if err == nil {
+			return nil
+		}
+
+		lastErr = err
+
+		// 如果是用户屏蔽 Bot 的错误，不重试
+		if isUserBlockedError(err) {
+			n.logger.Warn("用户已屏蔽 Bot: user_id=%d", msg.ChatID)
+			return nil // 静默处理，不返回错误
+		}
+
+		// 如果不是最后一次重试，等待后重试
+		if i < maxRetries-1 {
+			waitTime := time.Duration(i+1) * time.Second
+			n.logger.Warn("发送消息失败，%v 后重试 (第 %d/%d 次): %v", waitTime, i+1, maxRetries, err)
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(waitTime):
+				// 继续重试
+			}
+		}
+	}
+
+	return fmt.Errorf("重试 %d 次后仍然失败: %w", maxRetries, lastErr)
+}
+
+// isUserBlockedError 检查是否是用户屏蔽 Bot 的错误
+func isUserBlockedError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := err.Error()
+	// Telegram API 返回的用户屏蔽错误信息
+	return strings.Contains(errStr, "blocked by the user") ||
+		strings.Contains(errStr, "user is deactivated") ||
+		strings.Contains(errStr, "bot was blocked by the user")
 }

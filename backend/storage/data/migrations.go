@@ -26,6 +26,11 @@ func AutoMigrate(db *gorm.DB) error {
 		return fmt.Errorf("failed to migrate database: %w", err)
 	}
 
+	// 执行充值订单相关的迁移
+	if err := MigrateRechargeOrders(db); err != nil {
+		return fmt.Errorf("failed to migrate recharge orders: %w", err)
+	}
+
 	return nil
 }
 
@@ -50,6 +55,19 @@ func MigrateWallets(db *gorm.DB) error {
 
 		if err := db.Create(&wallet).Error; err != nil {
 			return fmt.Errorf("failed to create wallet for user %d: %w", user.ID, err)
+		}
+	}
+
+	return nil
+}
+
+// MigrateRechargeOrders 迁移充值订单表
+func MigrateRechargeOrders(db *gorm.DB) error {
+	// 检查 exact_amount 字段是否存在索引
+	if !db.Migrator().HasIndex(&models.RechargeOrder{}, "exact_amount") {
+		// 创建 exact_amount 字段的索引
+		if err := db.Migrator().CreateIndex(&models.RechargeOrder{}, "exact_amount"); err != nil {
+			return fmt.Errorf("failed to create exact_amount index: %w", err)
 		}
 	}
 

@@ -35,6 +35,11 @@ type WalletService interface {
 	UnfreezeBalance(ctx context.Context, userID int64, amount string) error
 	DeductBalance(ctx context.Context, userID int64, amount string) error
 	AddBalance(ctx context.Context, userID int64, amount string) error
+
+	// 新增方法用于充值功能
+	GetWallet(ctx context.Context, userID int64) (*models.Wallet, error)
+	GetOrCreateWallet(ctx context.Context, userID int64) (*models.Wallet, error)
+	AddBalanceWithRemark(ctx context.Context, userID int64, amount string, remark string) error
 }
 
 // walletService 钱包服务实现
@@ -276,6 +281,59 @@ func (s *walletService) getRechargeAddress() string {
 	// TODO: 从配置或区块链服务获取充值地址
 	// 这里暂时返回一个固定地址
 	return "TYourWalletAddressHere"
+}
+
+// GetWallet 获取用户钱包
+func (s *walletService) GetWallet(ctx context.Context, userID int64) (*models.Wallet, error) {
+	wallet, err := s.walletRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("获取用户钱包失败: %w", err)
+	}
+	return wallet, nil
+}
+
+// GetOrCreateWallet 获取或创建用户钱包
+func (s *walletService) GetOrCreateWallet(ctx context.Context, userID int64) (*models.Wallet, error) {
+	wallet, err := s.walletRepo.GetOrCreate(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("获取或创建用户钱包失败: %w", err)
+	}
+	return wallet, nil
+}
+
+// AddBalanceWithRemark 增加余额（带备注）
+func (s *walletService) AddBalanceWithRemark(ctx context.Context, userID int64, amount string, remark string) error {
+	// 获取或创建钱包
+	wallet, err := s.GetOrCreateWallet(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	// 解析金额
+	balance, _ := parseDecimal(wallet.Balance)
+	addAmount, err := parseDecimal(amount)
+	if err != nil {
+		return fmt.Errorf("金额格式错误: %w", err)
+	}
+
+	// 计算新余额
+	newBalance := new(big.Float).Add(balance, addAmount)
+	wallet.Balance = newBalance.Text('f', 8)
+
+	// 更新总收入
+	totalIncome, _ := parseDecimal(wallet.TotalIncome)
+	newTotalIncome := new(big.Float).Add(totalIncome, addAmount)
+	wallet.TotalIncome = newTotalIncome.Text('f', 8)
+
+	// 保存钱包
+	if err := s.walletRepo.Update(ctx, wallet); err != nil {
+		return fmt.Errorf("更新钱包余额失败: %w", err)
+	}
+
+	// TODO: 记录交易日志（包含备注）
+	// 这里可以添加交易记录的逻辑
+
+	return nil
 }
 
 // parseDecimal 解析 decimal 字符串为 big.Float

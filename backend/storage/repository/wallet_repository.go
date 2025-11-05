@@ -13,6 +13,7 @@ import (
 type WalletRepository interface {
 	Create(ctx context.Context, wallet *models.Wallet) error
 	GetByUserID(ctx context.Context, userID int64) (*models.Wallet, error)
+	GetOrCreate(ctx context.Context, userID int64) (*models.Wallet, error)
 	Update(ctx context.Context, wallet *models.Wallet) error
 	UpdateBalance(ctx context.Context, userID int64, balance, frozenBalance string) error
 	Delete(ctx context.Context, id uint) error

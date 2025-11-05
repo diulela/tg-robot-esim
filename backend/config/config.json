@@ -16,7 +16,7 @@
   "blockchain": {
     "tron_api_key": "15f771d4-50db-4bb4-ac68-0db28439a7a0",
     "tron_endpoint": "https://api.trongrid.io",
-    "monitor_interval": 30000000000,
+    "monitor_interval": "30s",
     "required_confirmations": 5,
     "max_block_delay": 100,
     "wallet_address": "TXCL64V6bqsCSsb7iS8gEYjLF6v45YvjXr"

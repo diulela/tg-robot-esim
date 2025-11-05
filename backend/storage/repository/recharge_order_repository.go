@@ -16,7 +16,9 @@ type RechargeOrderRepository interface {
 	GetByOrderNo(ctx context.Context, orderNo string) (*models.RechargeOrder, error)
 	GetByUserID(ctx context.Context, userID int64, limit, offset int) ([]*models.RechargeOrder, error)
 	GetByTxHash(ctx context.Context, txHash string) (*models.RechargeOrder, error)
+	GetByExactAmount(ctx context.Context, exactAmount string) (*models.RechargeOrder, error)
 	GetPendingOrders(ctx context.Context) ([]*models.RechargeOrder, error)
+	IsExactAmountExists(ctx context.Context, exactAmount string) (bool, error)
 	Update(ctx context.Context, order *models.RechargeOrder) error
 	UpdateStatus(ctx context.Context, id uint, status models.RechargeStatus) error
 	Delete(ctx context.Context, id uint) error
@@ -93,6 +95,20 @@ func (r *rechargeOrderRepository) GetByTxHash(ctx context.Context, txHash string
 	return &order, nil
 }
 
+// GetByExactAmount 根据精确金额获取充值订单
+func (r *rechargeOrderRepository) GetByExactAmount(ctx context.Context, exactAmount string) (*models.RechargeOrder, error) {
+	var order models.RechargeOrder
+	err := r.db.WithContext(ctx).
+		Where("exact_amount = ?", exactAmount).
+		Where("status = ?", models.RechargeStatusPending).
+		Where("expires_at > ?", time.Now()).
+		First(&order).Error
+	if err != nil {
+		return nil, err
+	}
+	return &order, nil
+}
+
 // GetPendingOrders 获取待处理的充值订单
 func (r *rechargeOrderRepository) GetPendingOrders(ctx context.Context) ([]*models.RechargeOrder, error) {
 	var orders []*models.RechargeOrder
@@ -127,4 +143,18 @@ func (r *rechargeOrderRepository) ExpireOldOrders(ctx context.Context) error {
 		Where("status = ?", models.RechargeStatusPending).
 		Where("expires_at < ?", time.Now()).
 		Update("status", models.RechargeStatusExpired).Error
+}
+
+// IsExactAmountExists 检查精确金额是否在进行中的订单中存在
+func (r *rechargeOrderRepository) IsExactAmountExists(ctx context.Context, exactAmount string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&models.RechargeOrder{}).
+		Where("exact_amount = ?", exactAmount).
+		Where("status = ?", models.RechargeStatusPending).
+		Where("expires_at > ?", time.Now()).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

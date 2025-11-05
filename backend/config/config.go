@@ -15,6 +15,7 @@ type Config struct {
 	Logging    LoggingConfig    `json:"logging"`
 	Server     ServerConfig     `json:"server"`
 	EsimSDK    EsimSDKConfig    `json:"esim_sdk"`
+	Recharge   RechargeConfig   `json:"recharge"`
 }
 
 // TelegramConfig Telegram 相关配置
@@ -68,6 +69,16 @@ type EsimSDKConfig struct {
 	APISecret      string `json:"api_secret"`
 	BaseURL        string `json:"base_url"`
 	TimezoneOffset int    `json:"timezone_offset"` // 时区偏移（小时），例如：8 表示 UTC+8
+}
+
+// RechargeConfig 充值相关配置
+type RechargeConfig struct {
+	MinAmount              float64 `json:"min_amount"`               // 最小充值金额
+	MaxAmount              float64 `json:"max_amount"`               // 最大充值金额
+	OrderExpireMinutes     int     `json:"order_expire_minutes"`     // 订单过期时间（分钟）
+	RequiredConfirmations  int     `json:"required_confirmations"`   // 所需确认数
+	MonitorIntervalSeconds int     `json:"monitor_interval_seconds"` // 监控间隔（秒）
+	DepositAddress         string  `json:"deposit_address"`          // 系统收款地址
 }
 
 // LoadConfig 从文件加载配置
@@ -141,6 +152,14 @@ func CreateDefaultConfig(configPath string) error {
 			BaseURL:        "https://api.your-domain.com",
 			TimezoneOffset: 0, // 默认使用 UTC 时间
 		},
+		Recharge: RechargeConfig{
+			MinAmount:              10.0,
+			MaxAmount:              10000.0,
+			OrderExpireMinutes:     30,
+			RequiredConfirmations:  19,
+			MonitorIntervalSeconds: 30,
+			DepositAddress:         "${DEPOSIT_WALLET_ADDRESS}",
+		},
 	}
 
 	data, err := json.MarshalIndent(defaultConfig, "", "  ")
@@ -193,6 +212,10 @@ func applyEnvironmentOverrides(config *Config) {
 	if esimBaseURL := os.Getenv("ESIM_BASE_URL"); esimBaseURL != "" {
 		config.EsimSDK.BaseURL = esimBaseURL
 	}
+
+	if depositAddress := os.Getenv("DEPOSIT_WALLET_ADDRESS"); depositAddress != "" {
+		config.Recharge.DepositAddress = depositAddress
+	}
 }
 
 // Validate 验证配置
@@ -218,6 +241,23 @@ func (c *Config) Validate() error {
 
 	if c.Blockchain.RequiredConfirmations < 1 {
 		return fmt.Errorf("required confirmations must be at least 1")
+	}
+
+	// 验证充值配置
+	if c.Recharge.MinAmount <= 0 {
+		return fmt.Errorf("recharge min amount must be greater than 0")
+	}
+
+	if c.Recharge.MaxAmount <= c.Recharge.MinAmount {
+		return fmt.Errorf("recharge max amount must be greater than min amount")
+	}
+
+	if c.Recharge.OrderExpireMinutes <= 0 {
+		return fmt.Errorf("recharge order expire minutes must be greater than 0")
+	}
+
+	if c.Recharge.RequiredConfirmations < 1 {
+		return fmt.Errorf("recharge required confirmations must be at least 1")
 	}
 
 	return nil

@@ -325,6 +325,36 @@ func (b *blockchainService) scanAddressTransactions(address string) error {
 	return nil
 }
 
+// GetAddressIncomingTransactions 获取地址的入账交易
+func (b *blockchainService) GetAddressIncomingTransactions(ctx context.Context, address string, minAmount string) ([]*TransactionInfo, error) {
+	// 获取地址的所有交易
+	allTxs, err := b.GetAddressTransactions(address, 50) // 获取最近50笔交易
+	if err != nil {
+		return nil, fmt.Errorf("获取地址交易失败: %w", err)
+	}
+
+	var incomingTxs []*TransactionInfo
+	for _, tx := range allTxs {
+		// 只返回入账交易（ToAddress 是目标地址）
+		if tx.ToAddress == address {
+			incomingTxs = append(incomingTxs, tx)
+		}
+	}
+
+	return incomingTxs, nil
+}
+
+// GetTransactionByHash 根据哈希获取交易详情
+func (b *blockchainService) GetTransactionByHash(ctx context.Context, txHash string) (*TransactionInfo, error) {
+	return b.ValidateTransaction(txHash)
+}
+
+// MatchTransactionAmount 匹配交易金额
+func (b *blockchainService) MatchTransactionAmount(txAmount string, targetAmount string) bool {
+	// 简单的字符串比较，实际应用中可能需要更精确的数值比较
+	return txAmount == targetAmount
+}
+
 // mapTronStatus 映射 TRON 状态到内部状态
 func (b *blockchainService) mapTronStatus(tronStatus string) string {
 	switch tronStatus {

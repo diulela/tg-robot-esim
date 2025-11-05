@@ -57,8 +57,30 @@ func main() {
 	orderService := services.NewOrderService(db.GetOrderRepository(), db.GetProductRepository(), walletService)
 	transactionService := services.NewTransactionService(db.GetTransactionRepository())
 
+	// 创建模拟服务用于测试
+	blockchainService := services.NewMockBlockchainService()
+	notificationService := services.NewMockNotificationService()
+
+	// 创建充值服务
+	rechargeService := services.NewRechargeService(
+		db.GetRechargeOrderRepository(),
+		walletService,
+		blockchainService,
+		notificationService,
+		db.GetDB(),
+		cfg.Recharge.DepositAddress,
+		cfg.Recharge.MinAmount,
+		cfg.Recharge.MaxAmount,
+	)
+
 	// 创建 HTTP 服务器
-	httpServer := server.NewMiniAppHTTPServer(cfg, productService, walletService, orderService, transactionService)
+	httpServer := server.NewMiniAppHTTPServer(cfg, productService, walletService, orderService, transactionService, rechargeService)
+
+	// 启动区块链监控定时任务
+	go func() {
+		log.Println("Starting blockchain monitoring task...")
+		startBlockchainMonitoring(rechargeService)
+	}()
 
 	// 启动服务器
 	go func() {
@@ -84,4 +106,32 @@ func main() {
 	}
 
 	log.Println("Server exited")
+}
+
+// startBlockchainMonitoring 启动区块链监控定时任务
+func startBlockchainMonitoring(rechargeService services.RechargeService) {
+	// 每30秒执行一次监控任务
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	log.Println("Blockchain monitoring started, checking every 30 seconds")
+
+	for {
+		select {
+		case <-ticker.C:
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+
+			// 处理待支付的充值订单
+			if err := rechargeService.ProcessPendingRecharges(ctx); err != nil {
+				log.Printf("Error processing pending recharges: %v", err)
+			}
+
+			// 清理过期订单
+			if err := rechargeService.ExpireOldOrders(ctx); err != nil {
+				log.Printf("Error expiring old orders: %v", err)
+			}
+
+			cancel()
+		}
+	}
 }

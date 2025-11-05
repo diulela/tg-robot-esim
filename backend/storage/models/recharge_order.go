@@ -20,16 +20,17 @@ const (
 // RechargeOrder 充值订单模型
 type RechargeOrder struct {
 	ID            uint           `gorm:"primaryKey;autoIncrement" json:"id"`
-	OrderNo       string         `gorm:"uniqueIndex;size:32;not null" json:"order_no"`  // 订单号
-	UserID        int64          `gorm:"index;not null" json:"user_id"`                 // 用户ID
-	Amount        string         `gorm:"type:decimal(10,2);not null" json:"amount"`     // 充值金额
-	WalletAddress string         `gorm:"size:100;not null" json:"wallet_address"`       // 充值地址
-	Status        RechargeStatus `gorm:"size:20;default:'pending';index" json:"status"` // 订单状态
-	TxHash        string         `gorm:"size:100;index" json:"tx_hash"`                 // 交易哈希
-	Confirmations int            `gorm:"default:0" json:"confirmations"`                // 确认数
-	Remark        string         `gorm:"type:text" json:"remark"`                       // 备注
-	ExpiresAt     time.Time      `gorm:"index" json:"expires_at"`                       // 过期时间
-	ConfirmedAt   *time.Time     `json:"confirmed_at,omitempty"`                        // 确认时间
+	OrderNo       string         `gorm:"uniqueIndex;size:32;not null" json:"order_no"`          // 订单号
+	UserID        int64          `gorm:"index;not null" json:"user_id"`                         // 用户ID
+	Amount        string         `gorm:"type:decimal(10,2);not null" json:"amount"`             // 用户输入的充值金额
+	ExactAmount   string         `gorm:"type:decimal(10,4);index;not null" json:"exact_amount"` // 精确金额（用于匹配交易）
+	WalletAddress string         `gorm:"size:100;not null" json:"wallet_address"`               // 系统收款地址
+	Status        RechargeStatus `gorm:"size:20;default:'pending';index" json:"status"`         // 订单状态
+	TxHash        string         `gorm:"size:100;index" json:"tx_hash"`                         // 交易哈希
+	Confirmations int            `gorm:"default:0" json:"confirmations"`                        // 确认数
+	Remark        string         `gorm:"type:text" json:"remark"`                               // 备注
+	ExpiresAt     time.Time      `gorm:"index" json:"expires_at"`                               // 过期时间
+	ConfirmedAt   *time.Time     `json:"confirmed_at,omitempty"`                                // 确认时间
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`

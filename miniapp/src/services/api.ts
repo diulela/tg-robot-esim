@@ -484,14 +484,71 @@ export const walletApi = {
     return apiClient.get('/miniapp/transactions', params)
   },
 
-  // 钱包充值
+  // 钱包充值（旧版本，保持兼容性）
   async recharge(data: WalletRechargeRequest): Promise<{ paymentUrl: string; transactionId: string }> {
     return apiClient.post('/miniapp/wallet/recharge', data)
   },
 
-  // 获取充值状态
+  // 获取充值状态（旧版本）
   async getRechargeStatus(transactionId: string): Promise<{ status: string; amount?: number }> {
     return apiClient.get(`/miniapp/wallet/recharge/${transactionId}/status`)
+  },
+
+  // 创建 USDT 充值订单
+  async createRechargeOrder(data: { amount: string }): Promise<{
+    order_no: string;
+    amount: string;
+    exact_amount: string;
+    wallet_address: string;
+    status: string;
+    expires_at: string;
+    created_at: string;
+  }> {
+    return apiClient.post('/miniapp/wallet/recharge', data)
+  },
+
+  // 获取充值订单详情
+  async getRechargeOrder(orderNo: string): Promise<{
+    order_no: string;
+    amount: string;
+    exact_amount: string;
+    wallet_address: string;
+    status: string;
+    tx_hash: string;
+    confirmations: number;
+    expires_at: string;
+    confirmed_at?: string;
+    created_at: string;
+  }> {
+    return apiClient.get(`/miniapp/wallet/recharge/${orderNo}`)
+  },
+
+  // 手动检查充值状态
+  async checkRechargeStatus(orderNo: string): Promise<{
+    order_no: string;
+    status: string;
+    tx_hash: string;
+    confirmations: number;
+    confirmed_at?: string;
+  }> {
+    return apiClient.post(`/miniapp/wallet/recharge/${orderNo}/check`)
+  },
+
+  // 获取充值历史
+  async getRechargeHistory(params?: { limit?: number; offset?: number }): Promise<{
+    orders: Array<{
+      order_no: string;
+      amount: string;
+      status: string;
+      tx_hash: string;
+      created_at: string;
+      confirmed_at?: string;
+    }>;
+    total: number;
+    limit: number;
+    offset: number;
+  }> {
+    return apiClient.get('/miniapp/wallet/recharge/history', params)
   }
 }
 

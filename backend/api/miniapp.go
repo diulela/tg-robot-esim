@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"tg-robot-sim/pkg/telegram"
 	"tg-robot-sim/services"
@@ -16,6 +17,7 @@ type MiniAppApiService struct {
 	walletService      services.WalletService
 	orderService       services.OrderService
 	transactionService services.TransactionService
+	rechargeService    services.RechargeService
 }
 
 // NewMiniAppHandler 创建 Mini App 处理器实例
@@ -24,12 +26,14 @@ func NewMiniAppApiService(
 	walletService services.WalletService,
 	orderService services.OrderService,
 	transactionService services.TransactionService,
+	rechargeService services.RechargeService,
 ) *MiniAppApiService {
 	return &MiniAppApiService{
 		productService:     productService,
 		walletService:      walletService,
 		orderService:       orderService,
 		transactionService: transactionService,
+		rechargeService:    rechargeService,
 	}
 }
 
@@ -46,6 +50,20 @@ type ErrorResponse struct {
 	Message string `json:"message"`
 	Details string `json:"details,omitempty"`
 }
+
+// 错误码定义
+const (
+	ErrCodeInvalidAmount   = 40001 // 充值金额低于最小限额
+	ErrCodeInvalidFormat   = 40002 // 充值金额格式错误
+	ErrCodeOrderNotFound   = 40003 // 订单不存在
+	ErrCodeOrderExpired    = 40004 // 订单已过期
+	ErrCodeOrderCompleted  = 40005 // 订单已完成，不能重复处理
+	ErrCodeWalletNotFound  = 40006 // 用户钱包不存在
+	ErrCodeGenerateAmount  = 50001 // 生成精确金额失败
+	ErrCodeBlockchainQuery = 50002 // 区块链查询失败
+	ErrCodeDatabaseError   = 50003 // 数据库操作失败
+	ErrCodeBalanceUpdate   = 50004 // 余额更新失败
+)
 
 // sendJSON 发送 JSON 响应
 func (h *MiniAppApiService) sendJSON(w http.ResponseWriter, statusCode int, data interface{}) {
@@ -68,6 +86,16 @@ func (h *MiniAppApiService) sendSuccess(w http.ResponseWriter, data interface{})
 func (h *MiniAppApiService) sendError(w http.ResponseWriter, statusCode int, message string, details string) {
 	response := ErrorResponse{
 		Code:    statusCode,
+		Message: message,
+		Details: details,
+	}
+	h.sendJSON(w, statusCode, response)
+}
+
+// sendErrorWithCode 发送带自定义错误码的错误响应
+func (h *MiniAppApiService) sendErrorWithCode(w http.ResponseWriter, statusCode int, errorCode int, message string, details string) {
+	response := ErrorResponse{
+		Code:    errorCode,
 		Message: message,
 		Details: details,
 	}
@@ -130,7 +158,11 @@ func (h *MiniAppApiService) RegisterRoutes(mux *http.ServeMux) {
 
 	// 钱包相关
 	mux.HandleFunc("/api/miniapp/wallet/balance", h.handleWalletBalance)
-	mux.HandleFunc("/api/miniapp/wallet/recharge", h.handleWalletRecharge)
+
+	// 充值相关
+	mux.HandleFunc("/api/miniapp/wallet/recharge", h.handleCreateRecharge)
+	mux.HandleFunc("/api/miniapp/wallet/recharge/", h.handleRechargeDetail)
+	mux.HandleFunc("/api/miniapp/wallet/recharge/history", h.handleRechargeHistory)
 
 	// 订单相关
 	mux.HandleFunc("/api/miniapp/purchase", h.handlePurchase)
@@ -247,8 +279,8 @@ func (h *MiniAppApiService) handleWalletBalance(w http.ResponseWriter, r *http.R
 	h.sendSuccess(w, balance)
 }
 
-// handleWalletRecharge 处理钱包充值请求
-func (h *MiniAppApiService) handleWalletRecharge(w http.ResponseWriter, r *http.Request) {
+// handleCreateRecharge 处理创建充值订单请求
+func (h *MiniAppApiService) handleCreateRecharge(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed", "")
 		return
@@ -272,14 +304,41 @@ func (h *MiniAppApiService) handleWalletRecharge(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// 创建充值订单
-	order, err := h.walletService.CreateRechargeOrder(ctx, userID, req.Amount)
-	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, "Failed to create recharge order", err.Error())
+	// 验证金额格式
+	if req.Amount == "" {
+		h.sendError(w, http.StatusBadRequest, "Amount is required", "")
 		return
 	}
 
-	h.sendSuccess(w, order)
+	// 创建充值订单
+	order, err := h.rechargeService.CreateRechargeOrder(ctx, userID, req.Amount)
+	if err != nil {
+		// 根据错误类型返回不同的错误码
+		errMsg := err.Error()
+		if errMsg == "充值金额格式错误" {
+			h.sendErrorWithCode(w, http.StatusBadRequest, ErrCodeInvalidFormat, errMsg, "")
+		} else if strings.Contains(errMsg, "充值金额不能低于") || strings.Contains(errMsg, "充值金额不能超过") {
+			h.sendErrorWithCode(w, http.StatusBadRequest, ErrCodeInvalidAmount, errMsg, "")
+		} else if strings.Contains(errMsg, "生成精确金额失败") {
+			h.sendErrorWithCode(w, http.StatusInternalServerError, ErrCodeGenerateAmount, "生成充值订单失败", errMsg)
+		} else {
+			h.sendErrorWithCode(w, http.StatusInternalServerError, ErrCodeDatabaseError, "创建充值订单失败", errMsg)
+		}
+		return
+	}
+
+	// 返回订单信息
+	response := map[string]interface{}{
+		"order_no":       order.OrderNo,
+		"amount":         order.Amount,
+		"exact_amount":   order.ExactAmount,
+		"wallet_address": order.WalletAddress,
+		"status":         order.Status,
+		"expires_at":     order.ExpiresAt,
+		"created_at":     order.CreatedAt,
+	}
+
+	h.sendSuccess(w, response)
 }
 
 // handlePurchase 处理购买请求
@@ -395,5 +454,167 @@ func (h *MiniAppApiService) handleTransactions(w http.ResponseWriter, r *http.Re
 		"transactions": transactions,
 		"limit":        limit,
 		"offset":       offset,
+	})
+}
+
+// handleRechargeDetail 处理充值订单详情和状态检查请求
+func (h *MiniAppApiService) handleRechargeDetail(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// 获取用户 ID
+	userID, err := h.getUserIDFromContext(r)
+	if err != nil || userID == 0 {
+		h.sendError(w, http.StatusUnauthorized, "Unauthorized", "Invalid user ID")
+		return
+	}
+
+	// 从 URL 路径提取订单号
+	// /api/miniapp/wallet/recharge/RCH1730800000001 或 /api/miniapp/wallet/recharge/RCH1730800000001/check
+	path := r.URL.Path
+	orderNo := ""
+	isCheckRequest := false
+
+	if path == "/api/miniapp/wallet/recharge/" {
+		h.sendError(w, http.StatusBadRequest, "Order number is required", "")
+		return
+	}
+
+	// 解析路径
+	pathParts := strings.Split(strings.TrimPrefix(path, "/api/miniapp/wallet/recharge/"), "/")
+	if len(pathParts) > 0 && pathParts[0] != "" {
+		orderNo = pathParts[0]
+		if len(pathParts) > 1 && pathParts[1] == "check" {
+			isCheckRequest = true
+		}
+	}
+
+	if orderNo == "" {
+		h.sendError(w, http.StatusBadRequest, "Order number is required", "")
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		// 获取订单详情
+		order, err := h.rechargeService.GetRechargeOrder(ctx, orderNo)
+		if err != nil {
+			if err.Error() == "订单不存在" {
+				h.sendErrorWithCode(w, http.StatusNotFound, ErrCodeOrderNotFound, err.Error(), "")
+			} else {
+				h.sendErrorWithCode(w, http.StatusInternalServerError, ErrCodeDatabaseError, "获取充值订单失败", err.Error())
+			}
+			return
+		}
+
+		// 检查订单是否属于当前用户
+		if order.UserID != userID {
+			h.sendError(w, http.StatusForbidden, "Access denied", "")
+			return
+		}
+
+		// 返回订单详情
+		response := map[string]interface{}{
+			"order_no":       order.OrderNo,
+			"amount":         order.Amount,
+			"exact_amount":   order.ExactAmount,
+			"wallet_address": order.WalletAddress,
+			"status":         order.Status,
+			"tx_hash":        order.TxHash,
+			"confirmations":  order.Confirmations,
+			"expires_at":     order.ExpiresAt,
+			"confirmed_at":   order.ConfirmedAt,
+			"created_at":     order.CreatedAt,
+		}
+
+		h.sendSuccess(w, response)
+
+	case http.MethodPost:
+		// 手动检查充值状态
+		if !isCheckRequest {
+			h.sendError(w, http.StatusBadRequest, "Invalid request path", "")
+			return
+		}
+
+		order, err := h.rechargeService.CheckRechargeStatus(ctx, orderNo)
+		if err != nil {
+			if err.Error() == "订单不存在" {
+				h.sendErrorWithCode(w, http.StatusNotFound, ErrCodeOrderNotFound, err.Error(), "")
+			} else if strings.Contains(err.Error(), "区块链查询失败") {
+				h.sendErrorWithCode(w, http.StatusInternalServerError, ErrCodeBlockchainQuery, "查询充值状态失败", err.Error())
+			} else {
+				h.sendErrorWithCode(w, http.StatusInternalServerError, ErrCodeDatabaseError, "检查充值状态失败", err.Error())
+			}
+			return
+		}
+
+		// 检查订单是否属于当前用户
+		if order.UserID != userID {
+			h.sendError(w, http.StatusForbidden, "Access denied", "")
+			return
+		}
+
+		// 返回更新后的订单状态
+		response := map[string]interface{}{
+			"order_no":      order.OrderNo,
+			"status":        order.Status,
+			"tx_hash":       order.TxHash,
+			"confirmations": order.Confirmations,
+			"confirmed_at":  order.ConfirmedAt,
+		}
+
+		h.sendSuccess(w, response)
+
+	default:
+		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed", "")
+	}
+}
+
+// handleRechargeHistory 处理充值历史请求
+func (h *MiniAppApiService) handleRechargeHistory(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed", "")
+		return
+	}
+
+	ctx := r.Context()
+
+	// 获取用户 ID
+	userID, err := h.getUserIDFromContext(r)
+	if err != nil || userID == 0 {
+		h.sendError(w, http.StatusUnauthorized, "Unauthorized", "Invalid user ID")
+		return
+	}
+
+	// 获取查询参数
+	limit := h.parseIntParam(r, "limit", 20)
+	offset := h.parseIntParam(r, "offset", 0)
+
+	// 获取充值历史
+	orders, total, err := h.rechargeService.GetUserRechargeHistory(ctx, userID, limit, offset)
+	if err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to get recharge history", err.Error())
+		return
+	}
+
+	// 转换订单数据格式
+	var orderList []map[string]interface{}
+	for _, order := range orders {
+		orderData := map[string]interface{}{
+			"order_no":     order.OrderNo,
+			"amount":       order.Amount,
+			"status":       order.Status,
+			"tx_hash":      order.TxHash,
+			"created_at":   order.CreatedAt,
+			"confirmed_at": order.ConfirmedAt,
+		}
+		orderList = append(orderList, orderData)
+	}
+
+	// 返回响应
+	h.sendSuccess(w, map[string]interface{}{
+		"orders": orderList,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
 	})
 }

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"tg-robot-sim/storage/models"
 	"time"
 )
 
@@ -112,6 +113,15 @@ type BlockchainService interface {
 
 	// IsTransactionConfirmed 检查交易是否已确认
 	IsTransactionConfirmed(txHash string, requiredConfirmations int) (bool, error)
+
+	// GetAddressIncomingTransactions 获取地址的入账交易
+	GetAddressIncomingTransactions(ctx context.Context, address string, minAmount string) ([]*TransactionInfo, error)
+
+	// GetTransactionByHash 根据哈希获取交易详情
+	GetTransactionByHash(ctx context.Context, txHash string) (*TransactionInfo, error)
+
+	// MatchTransactionAmount 匹配交易金额
+	MatchTransactionAmount(txAmount string, targetAmount string) bool
 }
 
 // NotificationService 定义通知服务接口
@@ -128,4 +138,35 @@ type NotificationService interface {
 
 	// SendTransactionNotification 发送交易通知
 	SendTransactionNotification(ctx context.Context, userID int64, txInfo *TransactionInfo) error
+
+	// SendRechargeSuccessNotification 发送充值成功通知
+	SendRechargeSuccessNotification(ctx context.Context, userID int64, amount string, orderNo string) error
+}
+
+// RechargeService 定义充值服务接口
+// 负责处理用户充值相关业务逻辑
+type RechargeService interface {
+	// CreateRechargeOrder 创建充值订单
+	CreateRechargeOrder(ctx context.Context, userID int64, amount string) (*models.RechargeOrder, error)
+
+	// GetRechargeOrder 获取充值订单详情
+	GetRechargeOrder(ctx context.Context, orderNo string) (*models.RechargeOrder, error)
+
+	// GetUserRechargeHistory 获取用户充值历史
+	GetUserRechargeHistory(ctx context.Context, userID int64, limit, offset int) ([]*models.RechargeOrder, int64, error)
+
+	// CheckRechargeStatus 手动检查充值状态
+	CheckRechargeStatus(ctx context.Context, orderNo string) (*models.RechargeOrder, error)
+
+	// ProcessPendingRecharges 处理待支付的充值订单（定时任务调用）
+	ProcessPendingRecharges(ctx context.Context) error
+
+	// ConfirmRecharge 确认充值并更新余额，并发送 Telegram 通知
+	ConfirmRecharge(ctx context.Context, order *models.RechargeOrder, txHash string) error
+
+	// ExpireOldOrders 将过期订单标记为已过期
+	ExpireOldOrders(ctx context.Context) error
+
+	// GenerateExactAmount 生成唯一的精确金额
+	GenerateExactAmount(ctx context.Context, baseAmount string) (string, error)
 }
