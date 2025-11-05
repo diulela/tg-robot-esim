@@ -193,7 +193,7 @@ func (s *rechargeService) ProcessPendingRecharges(ctx context.Context) error {
 		for _, tx := range transactions {
 			if s.blockchainService.MatchTransactionAmount(tx.Amount, order.ExactAmount) {
 				// 检查确认数
-				if tx.Confirmations >= 19 {
+				if tx.Confirmations >= 5 {
 					// 确认充值
 					if err := s.ConfirmRecharge(ctx, order, tx.TxHash); err != nil {
 						fmt.Printf("确认订单 %s 充值失败: %v\n", order.OrderNo, err)

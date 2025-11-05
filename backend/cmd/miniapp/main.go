@@ -82,6 +82,12 @@ func main() {
 		startBlockchainMonitoring(rechargeService)
 	}()
 
+	// 启动充值订单过期定时任务
+	go func() {
+		log.Println("Starting blockchain monitoring task...")
+		startExpireOldOrdersMonitoring(rechargeService)
+	}()
+
 	// 启动服务器
 	go func() {
 		log.Printf("Starting Mini App HTTP server on %s", httpServer.Addr)
@@ -126,11 +132,27 @@ func startBlockchainMonitoring(rechargeService services.RechargeService) {
 				log.Printf("Error processing pending recharges: %v", err)
 			}
 
+			cancel()
+		}
+	}
+}
+
+// startBlockchainMonitoring 启动区块链监控定时任务
+func startExpireOldOrdersMonitoring(rechargeService services.RechargeService) {
+	// 每30秒执行一次监控任务
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	log.Println("Blockchain monitoring started, checking every 30 seconds")
+
+	for {
+		select {
+		case <-ticker.C:
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			// 清理过期订单
 			if err := rechargeService.ExpireOldOrders(ctx); err != nil {
 				log.Printf("Error expiring old orders: %v", err)
 			}
-
 			cancel()
 		}
 	}
