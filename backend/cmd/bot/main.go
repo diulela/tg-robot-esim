@@ -64,7 +64,7 @@ func main() {
 	appLogger.Info("Bot starting with config:")
 	appLogger.Info("- Database: %s", cfg.Database.Type)
 	appLogger.Info("- Log Level: %s", cfg.Logging.Level)
-	appLogger.Info("- Monitor Interval: %v", cfg.Blockchain.MonitorInterval)
+	appLogger.Info("- Monitor Interval: %v", cfg.Blockchain.MonitorInterval.ToDuration())
 
 	// 初始化数据库
 	db, err := data.NewDatabase(&cfg.Database)

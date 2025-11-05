@@ -87,7 +87,7 @@ func (b *Bot) startPolling(ctx context.Context) error {
 
 	// 配置更新
 	updateConfig := tgbotapi.NewUpdate(0)
-	updateConfig.Timeout = int(b.config.Timeout.Seconds())
+	updateConfig.Timeout = int(b.config.Timeout.ToDuration().Seconds())
 
 	// 获取更新通道
 	b.updates = b.api.GetUpdatesChan(updateConfig)

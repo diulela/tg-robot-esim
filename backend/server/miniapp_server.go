@@ -51,8 +51,8 @@ func NewMiniAppHTTPServer(
 	return &http.Server{
 		Addr:         ":8080",
 		Handler:      handler,
-		ReadTimeout:  cfg.Server.ReadTimeout,
-		WriteTimeout: cfg.Server.WriteTimeout,
-		IdleTimeout:  cfg.Server.IdleTimeout,
+		ReadTimeout:  cfg.Server.ReadTimeout.ToDuration(),
+		WriteTimeout: cfg.Server.WriteTimeout.ToDuration(),
+		IdleTimeout:  cfg.Server.IdleTimeout.ToDuration(),
 	}
 }

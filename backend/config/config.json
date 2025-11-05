@@ -3,7 +3,7 @@
     "bot_token": "8402119481:AAEESFJ3MHnPi_7oPKbaoKkGnkHhX9-L1Q8",
     "webhook_url": "",
     "miniapp_url": "https://tg.xigrocoltd.com",
-    "timeout": 60000000000,
+    "timeout": "60s",
     "debug": false
   },
   "database": {
@@ -30,14 +30,22 @@
   },
   "server": {
     "port": 8080,
-    "read_timeout": 30000000000,
-    "write_timeout": 30000000000,
-    "idle_timeout": 120000000000
+    "read_timeout": "30s",
+    "write_timeout": "30s",
+    "idle_timeout": "120s"
   },
   "esim_sdk": {
     "api_key": "ak_4bfa7296d37d5cf2358b7de013935088fc798b88",
     "api_secret": "245597c23fc6f69e6b69785d2d7112172efb2f5c4d85d52cc9b92974c4129958",
     "base_url": "https://api.xigrocoltd.com",
     "timezone_offset": 0
+  },
+  "recharge": {
+    "min_amount": 10.0,
+    "max_amount": 10000.0,
+    "order_expire_minutes": 30,
+    "required_confirmations": 19,
+    "monitor_interval_seconds": 30,
+    "deposit_address": "TXCL64V6bqsCSsb7iS8gEYjLF6v45YvjXr"
   }
 }

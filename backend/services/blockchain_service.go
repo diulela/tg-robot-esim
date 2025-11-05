@@ -52,7 +52,7 @@ func (b *blockchainService) StartMonitoring(ctx context.Context) error {
 	}
 
 	b.isMonitoring = true
-	b.logger.Info("Starting blockchain monitoring with interval: %v", b.config.MonitorInterval)
+	b.logger.Info("Starting blockchain monitoring with interval: %v", b.config.MonitorInterval.ToDuration())
 
 	// 启动监控协程
 	go b.monitorLoop(ctx)
@@ -184,7 +184,7 @@ func (b *blockchainService) IsTransactionConfirmed(txHash string, requiredConfir
 
 // monitorLoop 监控循环
 func (b *blockchainService) monitorLoop(ctx context.Context) {
-	ticker := time.NewTicker(b.config.MonitorInterval)
+	ticker := time.NewTicker(b.config.MonitorInterval.ToDuration())
 	defer ticker.Stop()
 
 	b.logger.Info("Blockchain monitoring loop started")

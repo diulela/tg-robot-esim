@@ -7,6 +7,64 @@ import (
 	"time"
 )
 
+// Duration 自定义时间间隔类型，支持 JSON 字符串解析
+type Duration time.Duration
+
+// UnmarshalJSON 实现 JSON 反序列化
+func (d *Duration) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+
+	duration, err := time.ParseDuration(s)
+	if err != nil {
+		return fmt.Errorf("无效的时间间隔格式: %s", s)
+	}
+
+	*d = Duration(duration)
+	return nil
+}
+
+// MarshalJSON 实现 JSON 序列化
+func (d Duration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(time.Duration(d).String())
+}
+
+// ToDuration 转换为标准 time.Duration
+func (d Duration) ToDuration() time.Duration {
+	return time.Duration(d)
+}
+
+// String 返回时间间隔的字符串表示
+func (d Duration) String() string {
+	return time.Duration(d).String()
+}
+
+// Seconds 返回秒数
+func (d Duration) Seconds() float64 {
+	return time.Duration(d).Seconds()
+}
+
+// Milliseconds 返回毫秒数
+func (d Duration) Milliseconds() int64 {
+	return time.Duration(d).Milliseconds()
+}
+
+// NewDuration 从字符串创建 Duration
+func NewDuration(s string) (Duration, error) {
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return Duration(0), fmt.Errorf("无效的时间间隔格式: %s", s)
+	}
+	return Duration(d), nil
+}
+
+// NewDurationFromTime 从 time.Duration 创建 Duration
+func NewDurationFromTime(d time.Duration) Duration {
+	return Duration(d)
+}
+
 // Config 主配置结构
 type Config struct {
 	Telegram   TelegramConfig   `json:"telegram"`
@@ -20,11 +78,11 @@ type Config struct {
 
 // TelegramConfig Telegram 相关配置
 type TelegramConfig struct {
-	BotToken   string        `json:"bot_token"`
-	WebhookURL string        `json:"webhook_url"`
-	MiniAppURL string        `json:"miniapp_url"`
-	Timeout    time.Duration `json:"timeout"`
-	Debug      bool          `json:"debug"`
+	BotToken   string   `json:"bot_token"`
+	WebhookURL string   `json:"webhook_url"`
+	MiniAppURL string   `json:"miniapp_url"`
+	Timeout    Duration `json:"timeout"`
+	Debug      bool     `json:"debug"`
 }
 
 // DatabaseConfig 数据库配置
@@ -38,12 +96,12 @@ type DatabaseConfig struct {
 
 // BlockchainConfig 区块链配置
 type BlockchainConfig struct {
-	TronAPIKey            string        `json:"tron_api_key"`
-	TronEndpoint          string        `json:"tron_endpoint"`
-	MonitorInterval       time.Duration `json:"monitor_interval"`
-	RequiredConfirmations int           `json:"required_confirmations"`
-	MaxBlockDelay         int           `json:"max_block_delay"`
-	WalletAddress         string        `json:"wallet_address"`
+	TronAPIKey            string   `json:"tron_api_key"`
+	TronEndpoint          string   `json:"tron_endpoint"`
+	MonitorInterval       Duration `json:"monitor_interval"`
+	RequiredConfirmations int      `json:"required_confirmations"`
+	MaxBlockDelay         int      `json:"max_block_delay"`
+	WalletAddress         string   `json:"wallet_address"`
 }
 
 // LoggingConfig 日志配置
@@ -57,10 +115,10 @@ type LoggingConfig struct {
 
 // ServerConfig 服务器配置
 type ServerConfig struct {
-	Port         int           `json:"port"`
-	ReadTimeout  time.Duration `json:"read_timeout"`
-	WriteTimeout time.Duration `json:"write_timeout"`
-	IdleTimeout  time.Duration `json:"idle_timeout"`
+	Port         int      `json:"port"`
+	ReadTimeout  Duration `json:"read_timeout"`
+	WriteTimeout Duration `json:"write_timeout"`
+	IdleTimeout  Duration `json:"idle_timeout"`
 }
 
 // EsimSDKConfig eSIM SDK 配置
@@ -115,7 +173,7 @@ func CreateDefaultConfig(configPath string) error {
 			BotToken:   "${TELEGRAM_BOT_TOKEN}",
 			WebhookURL: "",
 			MiniAppURL: "${MINIAPP_URL}",
-			Timeout:    60 * time.Second,
+			Timeout:    Duration(60 * time.Second),
 			Debug:      false,
 		},
 		Database: DatabaseConfig{
@@ -128,7 +186,7 @@ func CreateDefaultConfig(configPath string) error {
 		Blockchain: BlockchainConfig{
 			TronAPIKey:            "${TRON_API_KEY}",
 			TronEndpoint:          "https://api.trongrid.io",
-			MonitorInterval:       30 * time.Second,
+			MonitorInterval:       Duration(30 * time.Second),
 			RequiredConfirmations: 12,
 			MaxBlockDelay:         100,
 			WalletAddress:         "",
@@ -142,9 +200,9 @@ func CreateDefaultConfig(configPath string) error {
 		},
 		Server: ServerConfig{
 			Port:         8080,
-			ReadTimeout:  30 * time.Second,
-			WriteTimeout: 30 * time.Second,
-			IdleTimeout:  120 * time.Second,
+			ReadTimeout:  Duration(30 * time.Second),
+			WriteTimeout: Duration(30 * time.Second),
+			IdleTimeout:  Duration(120 * time.Second),
 		},
 		EsimSDK: EsimSDKConfig{
 			APIKey:         "${ESIM_API_KEY}",
