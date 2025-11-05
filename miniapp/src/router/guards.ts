@@ -158,25 +158,25 @@ async function preloadGuard(
       case 'Orders':
       case 'OrderDetail':
         // 预加载订单数据
-        await preloadOrderData(to)
+        // await preloadOrderData(to)
         break
         
       case 'Products':
       case 'ProductDetail':
         // 预加载产品数据
-        await preloadProductData(to)
+        // await preloadProductData(to)
         break
         
       case 'Regions':
       case 'Countries':
         // 预加载区域数据
-        await preloadRegionData(to)
+        // await preloadRegionData(to)
         break
         
       case 'Wallet':
       case 'WalletRecharge':
         // 预加载钱包数据
-        await preloadWalletData(to)
+        // await preloadWalletData(to)
         break
     }
   } catch (error) {

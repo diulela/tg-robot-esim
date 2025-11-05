@@ -101,14 +101,14 @@
       grow
       class="bottom-nav"
     >
-      <v-btn
+      <!-- <v-btn
         value="home"
         @click="navigateTo('Home')"
         class="nav-btn"
       >
         <v-icon>mdi-home</v-icon>
         <span>首页</span>
-      </v-btn>
+      </v-btn> -->
 
       <v-btn
         value="products"
@@ -119,14 +119,14 @@
         <span>商品</span>
       </v-btn>
 
-      <v-btn
+      <!-- <v-btn
         value="orders"
         @click="navigateTo('Orders')"
         class="nav-btn"
       >
         <v-icon>mdi-receipt</v-icon>
         <span>订单</span>
-      </v-btn>
+      </v-btn> -->
 
       <v-btn
         value="profile"

@@ -13,9 +13,9 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'Home',
-    component: () => import('@/views/HomePage.vue'),
+    component: () => import('@/views/ProductPage.vue'),
     meta: {
-      title: '首页',
+      title: '商品列表',
       showBottomNav: true,
       keepAlive: true
     }
