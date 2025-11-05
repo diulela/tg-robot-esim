@@ -17,6 +17,7 @@ import type {
   ApiError,
   // HttpStatusCode
 } from '@/types'
+import { OrderStatus } from '@/types'
 
 // API 客户端配置
 interface ApiClientConfig {
@@ -160,7 +161,7 @@ class ApiClient {
   private async request<T>(config: AxiosRequestConfig): Promise<T> {
     try {
       const response: AxiosResponse<any> = await this.client(config)
-      
+
       // 适配后端响应格式: { code: 0, message: "success", data: {...} }
       if (response.data.code === 0) {
         return response.data.data as T
@@ -209,7 +210,7 @@ export const productApi = {
     let coverageAreas: string[] = []
     let countryCode = ''
     let country = ''
-    
+
     try {
       if (backendProduct.countries) {
         const countriesData = JSON.parse(backendProduct.countries)
@@ -222,7 +223,7 @@ export const productApi = {
     } catch (e) {
       console.warn('解析国家数据失败:', e)
     }
-    
+
     // 解析 features JSON 字符串
     let features: string[] = []
     try {
@@ -232,12 +233,12 @@ export const productApi = {
     } catch (e) {
       console.warn('解析特性数据失败:', e)
     }
-    
+
     // 格式化数据量
-    const dataAmount = backendProduct.data_size >= 1024 
+    const dataAmount = backendProduct.data_size >= 1024
       ? `${(backendProduct.data_size / 1024).toFixed(1)}GB`
       : `${backendProduct.data_size}MB`
-    
+
     return {
       id: String(backendProduct.id),
       name: backendProduct.name || '',
@@ -266,10 +267,10 @@ export const productApi = {
     const { products = [], total = 0, limit = 20, offset = 0 } = backendData
     const page = Math.floor(offset / limit) + 1
     const totalPages = Math.ceil(total / limit)
-    
+
     // 转换每个产品数据
     const transformedProducts = products.map((p: any) => this.transformProduct(p))
-    
+
     return {
       items: transformedProducts,
       total,
@@ -296,7 +297,7 @@ export const productApi = {
       backendParams.limit = params?.pageSize || 20
       backendParams.offset = params?.offset || 0
     }
-    
+
     const data = await apiClient.get('/miniapp/products', backendParams)
     return this.transformProductResponse(data)
   },
@@ -325,24 +326,101 @@ export const productApi = {
 
 // 订单相关 API
 export const orderApi = {
+  // 转换后端订单数据为前端格式
+  transformOrder(backendOrder: any): Order {
+    const order: Order = {
+      id: String(backendOrder.id),
+      orderNumber: backendOrder.order_number || '',
+      productId: String(backendOrder.product_id),
+      productName: backendOrder.product_name || '',
+      amount: backendOrder.amount || 0,
+      currency: backendOrder.currency || 'USD',
+      status: backendOrder.status || OrderStatus.PENDING,
+      createdAt: backendOrder.created_at || new Date().toISOString()
+    }
+
+    // 可选字段
+    if (backendOrder.payment_method) order.paymentMethod = backendOrder.payment_method
+    if (backendOrder.paid_at) order.paidAt = backendOrder.paid_at
+    if (backendOrder.completed_at) order.completedAt = backendOrder.completed_at
+    if (backendOrder.transaction_hash) order.transactionHash = backendOrder.transaction_hash
+    if (backendOrder.refund_reason) order.refundReason = backendOrder.refund_reason
+
+    // eSIM 信息
+    if (backendOrder.esim_info) {
+      order.esimInfo = {
+        iccid: backendOrder.esim_info.iccid || '',
+        activationCode: backendOrder.esim_info.activation_code || '',
+        qrCode: backendOrder.esim_info.qr_code || '',
+        apnType: backendOrder.esim_info.apn_type || 'automatic',
+        isRoaming: backendOrder.esim_info.is_roaming || false,
+        activatedAt: backendOrder.esim_info.activated_at,
+        expiresAt: backendOrder.esim_info.expires_at,
+        dataUsed: backendOrder.esim_info.data_used,
+        dataRemaining: backendOrder.esim_info.data_remaining
+      }
+    }
+
+    return order
+  },
+
+  // 转换后端订单响应为前端格式
+  transformOrderResponse(backendData: any): PaginatedResponse<Order> {
+    const { orders = [], stats, limit = 20, offset = 0 } = backendData
+    const total = stats?.total_orders || 0
+    const page = Math.floor(offset / limit) + 1
+    const totalPages = Math.ceil(total / limit)
+
+    // 转换每个订单数据
+    const transformedOrders = orders.map((o: any) => this.transformOrder(o))
+
+    return {
+      items: transformedOrders,
+      total,
+      page,
+      pageSize: limit,
+      totalPages,
+      hasNext: offset + limit < total,
+      hasPrev: offset > 0
+    }
+  },
+
   // 获取订单列表
   async getOrders(params?: OrderQueryParams): Promise<PaginatedResponse<Order>> {
-    return apiClient.get('/miniapp/orders', params)
+    // 转换前端参数为后端格式
+    const backendParams: any = {}
+    if (params?.status) backendParams.status = params.status
+    if (params?.startDate) backendParams.start_date = params.startDate
+    if (params?.endDate) backendParams.end_date = params.endDate
+    if (params?.page) {
+      const pageSize = params.pageSize || 20
+      backendParams.limit = pageSize
+      backendParams.offset = (params.page - 1) * pageSize
+    } else {
+      backendParams.limit = params?.pageSize || 20
+      backendParams.offset = 0
+    }
+
+    const data = await apiClient.get('/miniapp/orders', backendParams)
+    return this.transformOrderResponse(data)
   },
 
   // 获取订单详情
   async getOrder(id: string): Promise<Order> {
-    return apiClient.get(`/miniapp/orders/${id}`)
+    const data = await apiClient.get(`/miniapp/orders/${id}`)
+    return this.transformOrder(data)
   },
 
   // 创建订单 (购买产品)
   async createOrder(data: CreateOrderRequest): Promise<Order> {
-    return apiClient.post('/miniapp/purchase', data)
+    const result = await apiClient.post('/miniapp/purchase', data)
+    return this.transformOrder(result)
   },
 
   // 取消订单
   async cancelOrder(id: string, reason?: string): Promise<Order> {
-    return apiClient.patch(`/miniapp/orders/${id}/cancel`, { reason })
+    const result = await apiClient.patch(`/miniapp/orders/${id}/cancel`, { reason })
+    return this.transformOrder(result)
   },
 
   // 获取订单状态
