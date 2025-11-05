@@ -8,7 +8,7 @@
   },
   "database": {
     "type": "mysql",
-    "dsn": "root:123456@localhost:3308/esim_shop?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8",
+    "dsn": "esim_shop:DcyFf453NzhbXBMK@127.0.0.1:3306/esim_shop?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8",
     "max_connections": 10,
     "max_idle_conns": 5,
     "conn_max_life": "1h"
