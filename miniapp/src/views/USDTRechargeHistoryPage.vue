@@ -1,6 +1,5 @@
 <template>
   <div class="usdt-recharge-history-page">
-    <h1 class="page-title">充值历史</h1>
     
     <!-- 加载状态 -->
     <div v-if="loading && orders.length === 0" class="loading-container">
@@ -58,13 +57,6 @@
                 class="action-btn view-tx-btn"
               >
                 查看交易
-              </button>
-              <button 
-                v-if="order.status === 'pending'"
-                @click.stop="checkOrderStatus(order)"
-                class="action-btn check-btn"
-              >
-                检查状态
               </button>
             </div>
           </div>
