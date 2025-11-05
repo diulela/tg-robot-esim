@@ -19,17 +19,6 @@
 
     <!-- 充值记录列表 -->
     <div v-else class="orders-container">
-      <!-- 统计信息 -->
-      <div class="stats-section">
-        <div class="stats-item">
-          <div class="stats-label">总充值次数</div>
-          <div class="stats-value">{{ total }} 次</div>
-        </div>
-        <div class="stats-item">
-          <div class="stats-label">成功充值</div>
-          <div class="stats-value">{{ successCount }} 次</div>
-        </div>
-      </div>
 
       <!-- 订单列表 -->
       <div class="orders-list">
@@ -76,13 +65,6 @@
                 class="action-btn check-btn"
               >
                 检查状态
-              </button>
-              <button 
-                v-if="order.status === 'expired'"
-                @click.stop="retryRecharge(order)"
-                class="action-btn retry-btn"
-              >
-                重新充值
               </button>
             </div>
           </div>

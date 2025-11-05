@@ -99,14 +99,7 @@
         >
           查看钱包
         </button>
-        
-        <button 
-          v-if="order.status === 'expired'"
-          @click="createNewOrder"
-          class="retry-btn"
-        >
-          重新充值
-        </button>
+  
       </div>
 
       <!-- 充值说明 -->
@@ -225,9 +218,6 @@ export default {
           startCountdown()
         }
         
-        // 生成二维码
-        await generateQRCode()
-        
       } catch (error) {
         console.error('加载订单详情失败:', error)
         errorMessage.value = error.message || '加载订单详情失败'
@@ -252,23 +242,6 @@ export default {
       }, 1000)
     }
     
-    const generateQRCode = async () => {
-      if (!order.value || !qrCanvas.value) return
-      
-      try {
-        // 生成包含地址的二维码
-        await QRCode.toCanvas(qrCanvas.value, order.value.wallet_address, {
-          width: 200,
-          margin: 2,
-          color: {
-            dark: '#000000',
-            light: '#ffffff'
-          }
-        })
-      } catch (error) {
-        console.error('生成二维码失败:', error)
-      }
-    }
     
     const copyAmount = async () => {
       try {
