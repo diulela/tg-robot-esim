@@ -2,12 +2,6 @@
   <div class="profile-page">
     <!-- 用户信息卡片 -->
     <div class="user-info-card">
-      <div class="user-avatar" v-if="user.avatar || user.name">
-        <img v-if="user.avatar" :src="user.avatar" :alt="user.name" />
-        <div v-else class="avatar-placeholder">
-          {{ getAvatarText(user.name) }}
-        </div>
-      </div>
       <div class="user-details">
         <h2 class="user-name">
           {{ user.name || '未设置昵称' }}
