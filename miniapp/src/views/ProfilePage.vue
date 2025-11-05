@@ -20,7 +20,7 @@
             <div class="stat-label">已完成订单</div>
           </div>
           <div class="stat-item">
-            <div class="stat-value">¥{{ formatAmount(orderStats.totalSpent) }}</div>
+            <div class="stat-value">{{ formatAmount(orderStats.totalSpent) }} USDT</div>
             <div class="stat-label">累计消费</div>
           </div>
         </div>
@@ -133,7 +133,9 @@ export default {
 
     // 方法
     const formatAmount = (amount) => {
-      return amount.toFixed(2)
+      const num = Number(amount)
+      if (isNaN(num)) return '0.00'
+      return num.toFixed(2)
     }
 
     const getAvatarText = (name) => {
