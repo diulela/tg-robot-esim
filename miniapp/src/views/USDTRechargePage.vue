@@ -41,7 +41,7 @@
         {{ amountError }}
       </div>
     </div>
-    
+
     <!-- 充值按钮 -->
     <div class="recharge-actions">
       <button 
@@ -115,7 +115,7 @@ export default {
     const loading = ref(false)
     
     // 快捷金额选项
-    const quickAmounts = [10, 50, 100, 200, 500, 1000]
+    const quickAmounts = [50, 100, 200, 500]
     
     // 计算属性
     const canRecharge = computed(() => {
