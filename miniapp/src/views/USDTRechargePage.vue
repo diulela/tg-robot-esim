@@ -1,7 +1,21 @@
 <template>
   <div class="usdt-recharge-page">
     <h1 class="page-title">USDT 充值</h1>
-    
+        <!-- 快捷金额选择 -->
+    <div class="quick-amounts">
+      <h4 class="quick-title">快捷选择</h4>
+      <div class="quick-options">
+        <button 
+          v-for="quickAmount in quickAmounts" 
+          :key="quickAmount"
+          @click="selectQuickAmount(quickAmount)"
+          :class="['quick-option', { active: amount == quickAmount }]"
+        >
+          {{ quickAmount }} USDT
+        </button>
+      </div>
+    </div>
+
     <!-- 充值金额输入 -->
     <div class="amount-section">
       <h3 class="section-title">充值金额</h3>
@@ -27,20 +41,17 @@
         {{ amountError }}
       </div>
     </div>
-
-    <!-- 快捷金额选择 -->
-    <div class="quick-amounts">
-      <h4 class="quick-title">快捷选择</h4>
-      <div class="quick-options">
-        <button 
-          v-for="quickAmount in quickAmounts" 
-          :key="quickAmount"
-          @click="selectQuickAmount(quickAmount)"
-          :class="['quick-option', { active: amount == quickAmount }]"
-        >
-          {{ quickAmount }} USDT
-        </button>
-      </div>
+    
+    <!-- 充值按钮 -->
+    <div class="recharge-actions">
+      <button 
+        @click="createRechargeOrder" 
+        :disabled="!canRecharge || loading"
+        class="recharge-btn"
+      >
+        <span v-if="loading">创建订单中...</span>
+        <span v-else>创建充值订单</span>
+      </button>
     </div>
 
     <!-- 充值说明 -->
@@ -71,17 +82,7 @@
       </div>
     </div>
 
-    <!-- 充值按钮 -->
-    <div class="recharge-actions">
-      <button 
-        @click="createRechargeOrder" 
-        :disabled="!canRecharge || loading"
-        class="recharge-btn"
-      >
-        <span v-if="loading">创建订单中...</span>
-        <span v-else>创建充值订单</span>
-      </button>
-    </div>
+
 
     <!-- 充值注意事项 -->
     <div class="recharge-notes">
