@@ -269,14 +269,41 @@ func (h *MiniAppApiService) handleWalletBalance(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// 获取钱包余额
-	balance, err := h.walletService.GetBalance(ctx, userID)
+	// 获取钱包信息
+	wallet, err := h.walletService.GetWallet(ctx, userID)
 	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, "Failed to get balance", err.Error())
 		return
 	}
 
-	h.sendSuccess(w, balance)
+	// 转换为前端期望的格式
+	response := map[string]interface{}{
+		"id":            fmt.Sprintf("%d", wallet.ID),
+		"userId":        fmt.Sprintf("%d", wallet.UserID),
+		"balance":       parseFloat(wallet.Balance),
+		"currency":      "USDT",
+		"frozenAmount":  parseFloat(wallet.FrozenBalance),
+		"totalRecharge": parseFloat(wallet.TotalIncome),
+		"totalSpent":    parseFloat(wallet.TotalExpense),
+		"createdAt":     wallet.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		"updatedAt":     wallet.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+
+	h.sendSuccess(w, response)
+}
+
+// parseFloat 将字符串转换为浮点数
+func parseFloat(s string) float64 {
+	if s == "" {
+		return 0.0
+	}
+
+	value, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0.0
+	}
+
+	return value
 }
 
 // handleCreateRecharge 处理创建充值订单请求

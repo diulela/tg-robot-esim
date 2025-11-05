@@ -7,17 +7,7 @@
           {{ user.name || '未设置昵称' }}
           <span v-if="user.isPremium" class="premium-badge">⭐</span>
         </h2>
-        <p class="user-id">ID: {{ user.id }}</p>
-        <div class="user-stats">
-          <div class="stat-item">
-            <div class="stat-value">{{ orderStats.completed }}</div>
-            <div class="stat-label">已完成订单</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value">{{ formatAmount(orderStats.totalSpent) }} USDT</div>
-            <div class="stat-label">累计消费</div>
-          </div>
-        </div>
+        <h3 class="user-name">ID: {{ user.id }}</h3>
       </div>
     </div>
 

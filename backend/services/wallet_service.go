@@ -64,9 +64,10 @@ func NewWalletService(
 
 // GetBalance 获取钱包余额
 func (s *walletService) GetBalance(ctx context.Context, userID int64) (*WalletBalance, error) {
-	wallet, err := s.walletRepo.GetByUserID(ctx, userID)
+	// 使用 GetOrCreate 确保钱包存在
+	wallet, err := s.walletRepo.GetOrCreate(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get wallet: %w", err)
+		return nil, fmt.Errorf("failed to get or create wallet: %w", err)
 	}
 
 	return &WalletBalance{
@@ -105,12 +106,12 @@ func (s *walletService) CreateRechargeOrder(ctx context.Context, userID int64, a
 
 // ProcessPayment 处理支付
 func (s *walletService) ProcessPayment(ctx context.Context, userID int64, productID int, amount string) (*PaymentResult, error) {
-	// 获取钱包
-	wallet, err := s.walletRepo.GetByUserID(ctx, userID)
+	// 获取或创建钱包
+	wallet, err := s.walletRepo.GetOrCreate(ctx, userID)
 	if err != nil {
 		return &PaymentResult{
 			Success: false,
-			Message: "钱包不存在",
+			Message: "获取钱包失败",
 		}, err
 	}
 
@@ -161,10 +162,10 @@ func (s *walletService) ProcessRecharge(ctx context.Context, txHash string, amou
 		return errors.New("order already processed")
 	}
 
-	// 获取钱包
-	wallet, err := s.walletRepo.GetByUserID(ctx, order.UserID)
+	// 获取或创建钱包
+	wallet, err := s.walletRepo.GetOrCreate(ctx, order.UserID)
 	if err != nil {
-		return fmt.Errorf("failed to get wallet: %w", err)
+		return fmt.Errorf("failed to get or create wallet: %w", err)
 	}
 
 	// 增加余额
@@ -194,7 +195,7 @@ func (s *walletService) ProcessRecharge(ctx context.Context, txHash string, amou
 
 // FreezeBalance 冻结余额
 func (s *walletService) FreezeBalance(ctx context.Context, userID int64, amount string) error {
-	wallet, err := s.walletRepo.GetByUserID(ctx, userID)
+	wallet, err := s.walletRepo.GetOrCreate(ctx, userID)
 	if err != nil {
 		return err
 	}
@@ -218,7 +219,7 @@ func (s *walletService) FreezeBalance(ctx context.Context, userID int64, amount 
 
 // UnfreezeBalance 解冻余额
 func (s *walletService) UnfreezeBalance(ctx context.Context, userID int64, amount string) error {
-	wallet, err := s.walletRepo.GetByUserID(ctx, userID)
+	wallet, err := s.walletRepo.GetOrCreate(ctx, userID)
 	if err != nil {
 		return err
 	}
@@ -242,7 +243,7 @@ func (s *walletService) UnfreezeBalance(ctx context.Context, userID int64, amoun
 
 // DeductBalance 扣除余额
 func (s *walletService) DeductBalance(ctx context.Context, userID int64, amount string) error {
-	wallet, err := s.walletRepo.GetByUserID(ctx, userID)
+	wallet, err := s.walletRepo.GetOrCreate(ctx, userID)
 	if err != nil {
 		return err
 	}
@@ -262,7 +263,7 @@ func (s *walletService) DeductBalance(ctx context.Context, userID int64, amount 
 
 // AddBalance 增加余额
 func (s *walletService) AddBalance(ctx context.Context, userID int64, amount string) error {
-	wallet, err := s.walletRepo.GetByUserID(ctx, userID)
+	wallet, err := s.walletRepo.GetOrCreate(ctx, userID)
 	if err != nil {
 		return err
 	}
@@ -285,7 +286,8 @@ func (s *walletService) getRechargeAddress() string {
 
 // GetWallet 获取用户钱包
 func (s *walletService) GetWallet(ctx context.Context, userID int64) (*models.Wallet, error) {
-	wallet, err := s.walletRepo.GetByUserID(ctx, userID)
+	// 使用 GetOrCreate 确保钱包存在
+	wallet, err := s.walletRepo.GetOrCreate(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("获取用户钱包失败: %w", err)
 	}

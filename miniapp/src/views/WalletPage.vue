@@ -8,12 +8,12 @@
           <span class="refresh-icon">🔄</span>
         </button>
       </div>
-      
+
       <div class="balance-amount">
-        <span class="currency">¥</span>
         <span class="amount">{{ formatAmount(walletBalance) }}</span>
+        <span class="currency">USDT</span>
       </div>
-      
+
       <div class="balance-actions">
         <button @click="goToRecharge" class="recharge-btn">
           充值
@@ -23,25 +23,17 @@
 
     <!-- 快捷操作 -->
     <div class="quick-actions">
-      <div class="action-item" @click="goToRecharge">
-        <div class="action-icon">💳</div>
-        <span class="action-text">充值</span>
-      </div>
-      
+
       <div class="action-item" @click="goToRechargeHistory" data-testid="recharge-orders">
         <div class="action-icon">📋</div>
         <span class="action-text">充值订单</span>
       </div>
-      
+
       <div class="action-item" @click="showTransactionHistory">
         <div class="action-icon">📊</div>
         <span class="action-text">交易记录</span>
       </div>
-      
-      <div class="action-item" @click="showWithdrawDialog">
-        <div class="action-icon">💰</div>
-        <span class="action-text">提现</span>
-      </div>
+
     </div>
 
     <!-- 最近交易 -->
@@ -50,43 +42,39 @@
         <h3 class="section-title">最近交易</h3>
         <button @click="showAllTransactions" class="view-all-btn">查看全部</button>
       </div>
-      
+
       <div v-if="loading" class="loading-container">
         <div class="loading-spinner"></div>
         <p>正在加载交易记录...</p>
       </div>
-      
+
       <div v-else-if="error" class="error-container">
         <div class="error-icon">⚠️</div>
         <p class="error-message">{{ error.message || '加载失败' }}</p>
         <button @click="loadWalletData" class="retry-btn">重试</button>
       </div>
-      
+
       <div v-else-if="recentTransactions.length > 0" class="transactions-list">
-        <div 
-          v-for="transaction in recentTransactions" 
-          :key="transaction.id"
-          class="transaction-item"
-          @click="showTransactionDetail(transaction)"
-        >
+        <div v-for="transaction in recentTransactions" :key="transaction.id" class="transaction-item"
+          @click="showTransactionDetail(transaction)">
           <div class="transaction-icon">
             <span v-if="transaction.type === 'recharge'">💳</span>
             <span v-else-if="transaction.type === 'purchase'">🛒</span>
             <span v-else-if="transaction.type === 'withdraw'">💰</span>
             <span v-else>💸</span>
           </div>
-          
+
           <div class="transaction-info">
             <div class="transaction-title">{{ transaction.title }}</div>
             <div class="transaction-time">{{ formatTime(transaction.createdAt) }}</div>
           </div>
-          
+
           <div class="transaction-amount" :class="getAmountClass(transaction)">
             {{ getAmountText(transaction) }}
           </div>
         </div>
       </div>
-      
+
       <div v-else class="empty-transactions">
         <div class="empty-icon">📝</div>
         <p>暂无交易记录</p>
@@ -106,7 +94,7 @@ export default {
   setup() {
     const router = useRouter()
     const appStore = useAppStore()
-    
+
     const loading = ref(false)
     const walletBalance = ref(0)
     const frozenBalance = ref(0)
@@ -114,22 +102,22 @@ export default {
     const totalExpense = ref(0)
     const recentTransactions = ref([])
     const error = ref(null)
-    
+
     // 方法
     const loadWalletData = async () => {
       loading.value = true
       error.value = null
-      
+
       try {
         // 调用钱包 API 获取余额
         const walletData = await api.wallet.getWallet()
-        
+
         // 更新钱包余额数据
         walletBalance.value = walletData.balance || 0
         frozenBalance.value = walletData.frozenAmount || 0
         totalIncome.value = walletData.totalRecharge || 0
         totalExpense.value = walletData.totalSpent || 0
-        
+
         // 加载最近交易记录
         const transactionData = await api.wallet.getTransactions({ limit: 5 })
         recentTransactions.value = transactionData.items.map(transaction => ({
@@ -140,7 +128,7 @@ export default {
           status: transaction.status,
           createdAt: new Date(transaction.createdAt)
         }))
-        
+
       } catch (err) {
         console.error('加载钱包数据失败:', err)
         error.value = err
@@ -149,18 +137,18 @@ export default {
         loading.value = false
       }
     }
-    
+
     const refreshBalance = async () => {
       await loadWalletData()
       appStore.showSuccess('余额已刷新')
     }
-    
+
     // 获取交易类型的中文标题
     const getTransactionTitle = (type, description) => {
       if (description) {
         return description
       }
-      
+
       const typeMap = {
         'recharge': '钱包充值',
         'payment': '购买 eSIM 套餐',
@@ -169,17 +157,17 @@ export default {
       }
       return typeMap[type] || '其他交易'
     }
-    
+
     const formatAmount = (amount) => {
       return amount.toFixed(2)
     }
-    
+
     const formatTime = (date) => {
       const now = new Date()
       const diff = now - date
       const hours = Math.floor(diff / (1000 * 60 * 60))
       const days = Math.floor(hours / 24)
-      
+
       if (days > 0) {
         return `${days}天前`
       } else if (hours > 0) {
@@ -188,51 +176,51 @@ export default {
         return '刚刚'
       }
     }
-    
 
-    
+
+
     const getAmountClass = (transaction) => {
       return transaction.amount > 0 ? 'amount-positive' : 'amount-negative'
     }
-    
+
     const getAmountText = (transaction) => {
       const prefix = transaction.amount > 0 ? '+' : ''
       return `${prefix}¥${Math.abs(transaction.amount).toFixed(2)}`
     }
-    
+
     const goToRecharge = () => {
       router.push({ name: 'WalletRecharge' })
     }
-    
+
     const goToRechargeHistory = () => {
       router.push({ name: 'USDTRechargeHistory' })
     }
-    
+
     const showWithdrawDialog = () => {
       appStore.showInfo('提现功能开发中')
     }
-    
+
     const showTransactionHistory = () => {
       appStore.showInfo('交易历史功能开发中')
     }
-    
+
     const showAllTransactions = () => {
       showTransactionHistory()
     }
-    
+
     const showTransactionDetail = (transaction) => {
       appStore.showInfo(`交易详情: ${transaction.title}`)
     }
-    
+
     const showSettings = () => {
       router.push({ name: 'Settings' })
     }
-    
+
     // 生命周期
     onMounted(() => {
       loadWalletData()
     })
-    
+
     return {
       loading,
       walletBalance,
@@ -445,8 +433,13 @@ export default {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .transactions-list {
