@@ -64,17 +64,6 @@ const routes: RouteRecordRaw[] = [
     },
     props: true
   },
-  // 保留旧路由以兼容
-  {
-    path: '/hot-products/:hotItemCode',
-    redirect: to => {
-      return {
-        name: 'ProductListSecondary',
-        params: { countryCode: to.params.hotItemCode },
-        query: to.query
-      }
-    }
-  },
   {
     path: '/products/:id',
     name: 'ProductDetail',
@@ -122,7 +111,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/wallet/recharge',
     name: 'WalletRecharge',
-    component: () => import('@/views/WalletRechargePage.vue'),
+    component: () => import('@/views/USDTRechargePage.vue'),
     meta: {
       title: '钱包充值',
       showBackButton: true,
@@ -250,75 +239,6 @@ export function shouldKeepAlive(name: string): boolean {
   return route?.meta?.keepAlive || false
 }
 
-// 路由导航方法
-export function navigateToHome() {
-  return router.push({ name: 'Home' })
-}
-
-export function navigateToRegions() {
-  return router.push({ name: 'Regions' })
-}
-
-export function navigateToCountries(region?: string) {
-  return router.push({ 
-    name: 'Countries', 
-    params: region ? { region } : {} 
-  })
-}
-
-export function navigateToProducts() {
-  return router.push({ name: 'Products' })
-}
-
-export function navigateToHotProducts(hotItemCode: string, hotItemName?: string) {
-  return router.push({ 
-    name: 'HotProductsSecondary', 
-    params: { hotItemCode },
-    query: hotItemName ? { name: hotItemName } : {}
-  })
-}
-
-export function navigateToProductDetail(id: string) {
-  return router.push({ 
-    name: 'ProductDetail', 
-    params: { id } 
-  })
-}
-
-export function navigateToOrders() {
-  return router.push({ name: 'Orders' })
-}
-
-export function navigateToOrderDetail(id: string) {
-  return router.push({ 
-    name: 'OrderDetail', 
-    params: { id } 
-  })
-}
-
-export function navigateToWallet() {
-  return router.push({ name: 'Wallet' })
-}
-
-export function navigateToWalletRecharge() {
-  return router.push({ name: 'WalletRecharge' })
-}
-
-export function navigateToProfile() {
-  return router.push({ name: 'Profile' })
-}
-
-export function navigateToSettings() {
-  return router.push({ name: 'Settings' })
-}
-
-export function navigateToHelp() {
-  return router.push({ name: 'Help' })
-}
-
-export function navigateToAbout() {
-  return router.push({ name: 'About' })
-}
 
 export function navigateBack() {
   return router.back()

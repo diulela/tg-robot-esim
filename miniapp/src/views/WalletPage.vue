@@ -18,9 +18,6 @@
         <button @click="goToRecharge" class="recharge-btn">
           充值
         </button>
-        <button @click="showWithdrawDialog" class="withdraw-btn">
-          提现
-        </button>
       </div>
     </div>
 
