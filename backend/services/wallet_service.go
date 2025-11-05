@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"tg-robot-sim/storage/models"
 	"tg-robot-sim/storage/repository"
@@ -303,8 +304,34 @@ func (s *walletService) GetOrCreateWallet(ctx context.Context, userID int64) (*m
 	return wallet, nil
 }
 
-// AddBalanceWithRemark 增加余额（带备注）
+// AddBalanceWithRemark 增加余额（带备注）- 带重试机制处理数据库锁定
 func (s *walletService) AddBalanceWithRemark(ctx context.Context, userID int64, amount string, remark string) error {
+	maxRetries := 3
+	var err error
+
+	for i := 0; i < maxRetries; i++ {
+		err = s.addBalanceWithRemarkOnce(ctx, userID, amount, remark)
+		if err == nil {
+			return nil // 成功，退出重试循环
+		}
+
+		// 如果是数据库锁定错误，进行重试
+		if i < maxRetries-1 && (err.Error() == "database is locked" || err.Error() == "database locked") {
+			waitTime := time.Duration(100*(i+1)) * time.Millisecond // 100ms, 200ms, 300ms
+			fmt.Printf("钱包操作数据库锁定，%v 后重试 (第 %d/%d 次): %v\n", waitTime, i+1, maxRetries, err)
+			time.Sleep(waitTime)
+			continue
+		}
+
+		// 其他错误或最后一次重试失败，直接返回
+		break
+	}
+
+	return err
+}
+
+// addBalanceWithRemarkOnce 单次增加余额操作
+func (s *walletService) addBalanceWithRemarkOnce(ctx context.Context, userID int64, amount string, remark string) error {
 	// 获取或创建钱包
 	wallet, err := s.GetOrCreateWallet(ctx, userID)
 	if err != nil {

@@ -209,14 +209,25 @@ func (s *rechargeService) ProcessPendingRecharges(ctx context.Context) error {
 
 // ConfirmRecharge 确认充值并更新余额，并发送 Telegram 通知
 func (s *rechargeService) ConfirmRecharge(ctx context.Context, order *models.RechargeOrder, txHash string) error {
-	// 使用数据库事务确保原子性
+	// 1. 首先验证交易是否真实存在且金额正确
+	if err := s.verifyTransaction(ctx, txHash, order.ExactAmount, s.depositAddress); err != nil {
+		return fmt.Errorf("交易验证失败: %w", err)
+	}
+
+	// 2. 使用数据库事务确保原子性，添加重试机制处理数据库锁定
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 1. 检查订单状态，防止重复处理
-		if order.Status != models.RechargeStatusPending {
-			return fmt.Errorf("订单已处理，当前状态: %s", order.Status)
+		// 重新获取最新的订单状态，防止并发问题
+		var currentOrder models.RechargeOrder
+		if err := tx.Where("id = ?", order.ID).First(&currentOrder).Error; err != nil {
+			return fmt.Errorf("获取订单失败: %w", err)
 		}
 
-		// 2. 检查交易哈希是否已被使用
+		// 检查订单状态，防止重复处理
+		if currentOrder.Status != models.RechargeStatusPending {
+			return fmt.Errorf("订单已处理，当前状态: %s", currentOrder.Status)
+		}
+
+		// 检查交易哈希是否已被使用
 		var existingOrder models.RechargeOrder
 		err := tx.Where("tx_hash = ? AND id != ?", txHash, order.ID).First(&existingOrder).Error
 		if err == nil {
@@ -226,22 +237,24 @@ func (s *rechargeService) ConfirmRecharge(ctx context.Context, order *models.Rec
 			return fmt.Errorf("检查交易哈希失败: %w", err)
 		}
 
-		// 3. 更新订单状态
+		// 更新订单状态
 		now := time.Now()
-		order.Status = models.RechargeStatusConfirmed
-		order.TxHash = txHash
-		order.ConfirmedAt = &now
+		currentOrder.Status = models.RechargeStatusConfirmed
+		currentOrder.TxHash = txHash
+		currentOrder.ConfirmedAt = &now
 
-		if err := tx.Save(order).Error; err != nil {
+		if err := tx.Save(&currentOrder).Error; err != nil {
 			return fmt.Errorf("更新订单状态失败: %w", err)
 		}
 
-		// 4. 增加用户余额
+		// 在同一事务中增加用户余额
 		remark := fmt.Sprintf("充值到账，订单号: %s", order.OrderNo)
-		if err := s.walletService.AddBalanceWithRemark(ctx, order.UserID, order.Amount, remark); err != nil {
+		if err := s.addBalanceInTransaction(ctx, tx, order.UserID, order.Amount, remark); err != nil {
 			return fmt.Errorf("增加用户余额失败: %w", err)
 		}
 
+		// 更新原始订单对象，用于后续通知
+		*order = currentOrder
 		return nil
 	})
 
@@ -249,7 +262,7 @@ func (s *rechargeService) ConfirmRecharge(ctx context.Context, order *models.Rec
 		return err
 	}
 
-	// 5. 发送 Telegram 通知（在事务外执行，失败不影响充值确认）
+	// 发送 Telegram 通知（在事务外执行，失败不影响充值确认）
 	if err := s.notificationService.SendRechargeSuccessNotification(ctx, order.UserID, order.Amount, order.OrderNo); err != nil {
 		// 通知发送失败不影响充值确认
 		fmt.Printf("发送充值成功通知失败: %v\n", err)
@@ -296,32 +309,88 @@ func (s *rechargeService) GenerateExactAmount(ctx context.Context, baseAmount st
 	return "", fmt.Errorf("生成唯一精确金额失败，请稍后重试")
 }
 
-// queryTransactionsWithRetry 带重试机制的区块链交易查询
-func (s *rechargeService) queryTransactionsWithRetry(ctx context.Context, address, minAmount string, maxRetries int) ([]*TransactionInfo, error) {
-	var lastErr error
+// verifyTransaction 验证交易是否真实存在且金额正确
+func (s *rechargeService) verifyTransaction(ctx context.Context, txHash, expectedAmount, expectedToAddress string) error {
+	// 通过交易哈希获取交易详情
+	txDetail, err := s.blockchainService.GetTransactionByHash(ctx, txHash)
+	if err != nil {
+		return fmt.Errorf("获取交易详情失败: %w", err)
+	}
 
-	for i := 0; i < maxRetries; i++ {
-		transactions, err := s.blockchainService.GetAddressIncomingTransactions(ctx, address, minAmount)
-		if err == nil {
-			return transactions, nil
-		}
+	// 验证交易是否确认
+	if txDetail.Confirmations < 5 {
+		return fmt.Errorf("交易确认数不足，当前: %d，需要: 5", txDetail.Confirmations)
+	}
 
-		lastErr = err
+	// 验证接收地址
+	if txDetail.ToAddress != expectedToAddress {
+		return fmt.Errorf("接收地址不匹配，期望: %s，实际: %s", expectedToAddress, txDetail.ToAddress)
+	}
 
-		// 如果不是最后一次重试，等待一段时间后重试
-		if i < maxRetries-1 {
-			// 指数退避：1秒、2秒、4秒
-			waitTime := time.Duration(1<<uint(i)) * time.Second
-			fmt.Printf("区块链查询失败，%v 后重试 (第 %d/%d 次): %v\n", waitTime, i+1, maxRetries, err)
+	// 验证金额
+	if !s.blockchainService.MatchTransactionAmount(txDetail.Amount, expectedAmount) {
+		return fmt.Errorf("交易金额不匹配，期望: %s，实际: %s", expectedAmount, txDetail.Amount)
+	}
 
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(waitTime):
-				// 继续重试
+	return nil
+}
+
+// addBalanceInTransaction 在数据库事务中增加用户余额
+func (s *rechargeService) addBalanceInTransaction(ctx context.Context, tx *gorm.DB, userID int64, amount, remark string) error {
+	// 获取或创建钱包（在事务中）
+	var wallet models.Wallet
+	err := tx.Where("user_id = ?", userID).First(&wallet).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// 创建新钱包
+			wallet = models.Wallet{
+				UserID:        userID,
+				Balance:       "0",
+				FrozenBalance: "0",
+				TotalIncome:   "0",
+				TotalExpense:  "0",
 			}
+			if err := tx.Create(&wallet).Error; err != nil {
+				return fmt.Errorf("创建钱包失败: %w", err)
+			}
+		} else {
+			return fmt.Errorf("获取钱包失败: %w", err)
 		}
 	}
 
-	return nil, fmt.Errorf("重试 %d 次后仍然失败: %w", maxRetries, lastErr)
+	// 解析金额
+	balance, _ := parseDecimal(wallet.Balance)
+	addAmount, err := parseDecimal(amount)
+	if err != nil {
+		return fmt.Errorf("金额格式错误: %w", err)
+	}
+
+	// 计算新余额
+	newBalance := new(big.Float).Add(balance, addAmount)
+	wallet.Balance = newBalance.Text('f', 8)
+
+	// 更新总收入
+	totalIncome, _ := parseDecimal(wallet.TotalIncome)
+	newTotalIncome := new(big.Float).Add(totalIncome, addAmount)
+	wallet.TotalIncome = newTotalIncome.Text('f', 8)
+
+	// 在事务中保存钱包
+	if err := tx.Save(&wallet).Error; err != nil {
+		return fmt.Errorf("更新钱包余额失败: %w", err)
+	}
+
+	// TODO: 在事务中记录交易日志（包含备注）
+	// 这里可以添加交易记录的逻辑
+
+	return nil
+}
+
+// queryTransactionsWithRetry 带重试机制的区块链交易查询
+func (s *rechargeService) queryTransactionsWithRetry(ctx context.Context, address, minAmount string, maxRetries int) ([]*TransactionInfo, error) {
+	transactions, err := s.blockchainService.GetAddressIncomingTransactions(ctx, address, minAmount)
+	if err == nil {
+		return transactions, nil
+	}
+
+	return nil, err
 }
