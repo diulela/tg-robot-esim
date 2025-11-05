@@ -3,278 +3,416 @@ inclusion: fileMatch
 fileMatchPattern: 'miniapp/**'
 ---
 
-# 前端开发规范 (Telegram Mini App)
+# 前端开发规范 (Vue 3.0 + TypeScript Telegram Mini App)
 
-## 开发环境和工具
+## 技术栈
+- **框架**: Vue 3.0 + Composition API + `<script setup>`
+- **语言**: TypeScript 5.3+ (类型安全)
+- **UI库**: Vuetify 3.4+ (Material Design)
+- **状态管理**: Pinia 2.1+ (现代状态管理)
+- **路由**: Vue Router 4.2+
+- **构建工具**: Vite 5.0+
+- **HTTP客户端**: Axios 1.6+
+- **开发工具**: ESLint, Prettier, VConsole
 
-### 技术栈
-- **构建工具**: Vite 5.0+ (快速开发和热重载)
-- **样式**: 原生 CSS，使用 CSS 变量和现代布局
-- **JavaScript**: ES6+ 模块化，无框架依赖
-- **Telegram**: Telegram Web App SDK
-
-### 开发服务器
+### 开发命令
 ```bash
-cd miniapp
-npm install
-npm run dev  # 启动开发服务器 (localhost:3000)
-npm run build  # 构建生产版本
+npm run dev        # 开发服务器 (localhost:8082)
+npm run build      # 构建生产版本
+npm run type-check # TypeScript 检查
+npm run lint       # 代码检查
 ```
 
 ## 代码组织规范
 
-### 文件命名约定
-- 页面文件: `kebab-case.js` (如 `product-list.js`)
-- 组件文件: `PascalCase.js` (如 `ProductCard.js`)
-- 工具文件: `camelCase.js` (如 `apiClient.js`)
-- 样式文件: `kebab-case.css` (如 `product-list.css`)
+### 文件命名
+- **Vue 组件**: `PascalCase.vue` (如 `ProductCard.vue`)
+- **页面组件**: `PascalCasePage.vue` (如 `ProductDetailPage.vue`)
+- **TypeScript 文件**: `camelCase.ts` (如 `apiClient.ts`)
+- **样式文件**: `kebab-case.scss` (如 `global.scss`)
 
-### 模块导入导出
-```javascript
-// 使用命名导出
-export const ProductCard = {
-  render: (product) => { /* ... */ }
-};
+### Vue 3 组件结构
+```vue
+<template>
+  <!-- 模板内容 -->
+</template>
 
-// 使用默认导出用于主要功能
-export default class ProductService {
-  // ...
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+
+// Props 定义
+interface Props {
+  title: string
+  count?: number
 }
 
-// 导入时保持一致性
-import ProductService from './services/ProductService.js';
-import { ProductCard, PriceFormatter } from './components/index.js';
+const props = withDefaults(defineProps<Props>(), {
+  count: 0
+})
+
+// Emits 定义
+const emit = defineEmits<{
+  update: [value: string]
+  click: [event: MouseEvent]
+}>()
+
+// 响应式状态
+const isLoading = ref(false)
+const displayTitle = computed(() => `${props.title} (${props.count})`)
+
+onMounted(() => {
+  // 初始化逻辑
+})
+</script>
+
+<style scoped lang="scss">
+// 组件样式
+</style>
 ```
 
 ## UI/UX 设计规范
 
-### Telegram 主题适配
-- 使用 Telegram Web App 提供的 CSS 变量
-- 支持明暗主题自动切换
-- 遵循 Telegram 的设计语言
+### Vuetify Material Design
+- 使用 Vuetify 3.4+ 组件库，遵循 Material Design 规范
+- 支持明暗主题自动切换，集成 Telegram 主题
+- 移动优先设计 (320px - 480px)，最小 44px 点击区域
+- 虚拟滚动、懒加载、代码分割优化
 
-### 响应式设计
-- 移动优先设计 (Mobile First)
-- 支持不同屏幕尺寸 (320px - 480px)
-- 使用 Flexbox 和 CSS Grid 布局
-- 触摸友好的交互元素 (最小 44px 点击区域)
-
-### CSS 变量系统
-```css
-:root {
-  /* Telegram 主题变量 */
-  --tg-theme-bg-color: var(--tg-theme-bg-color, #ffffff);
-  --tg-theme-text-color: var(--tg-theme-text-color, #000000);
-  
-  /* 自定义设计变量 */
-  --primary-color: #0088cc;
-  --success-color: #4caf50;
-  --error-color: #f44336;
-  --border-radius: 8px;
-  --spacing-unit: 8px;
-}
+### 主题配置
+```typescript
+// plugins/vuetify.ts
+const vuetify = createVuetify({
+  theme: {
+    defaultTheme: telegramService.getColorScheme(),
+    themes: {
+      light: {
+        colors: {
+          primary: '#6366F1',
+          secondary: '#EC4899'
+        }
+      },
+      dark: {
+        colors: {
+          primary: '#818CF8',
+          secondary: '#F472B6'
+        }
+      }
+    }
+  }
+})
 ```
 
-## JavaScript 开发规范
+## TypeScript 开发规范
 
 ### 代码风格
-- 使用 ES6+ 语法 (const/let, 箭头函数, 模板字符串)
-- 函数和变量使用 camelCase
-- 常量使用 UPPER_SNAKE_CASE
-- 类名使用 PascalCase
+- **严格模式**: 启用 TypeScript 严格模式
+- **命名规范**: 变量/函数 camelCase，类型/接口 PascalCase
+- **类型导入**: 使用 `import type` 导入类型定义
 
 ### 错误处理
-```javascript
-// API 调用错误处理
-async function fetchProducts() {
+```typescript
+async function fetchProducts(): Promise<Product[]> {
   try {
-    const response = await apiClient.get('/api/products');
-    return response.data;
+    const response = await productApi.getProducts()
+    return response.data
   } catch (error) {
-    console.error('获取产品列表失败:', error);
-    showErrorMessage('加载产品失败，请稍后重试');
-    return [];
+    console.error('获取产品列表失败:', error)
+    const appStore = useAppStore()
+    appStore.showError('加载产品失败，请稍后重试')
+    return []
   }
-}
-
-// 用户友好的错误提示
-function showErrorMessage(message) {
-  // 显示中文错误信息
-  const toast = document.createElement('div');
-  toast.className = 'error-toast';
-  toast.textContent = message;
-  document.body.appendChild(toast);
 }
 ```
 
-### 状态管理
-- 使用 localStorage 持久化用户数据
-- 实现简单的状态管理器 (state.js)
-- 避免全局变量，使用模块化状态
-
-```javascript
-// 状态管理示例
-const AppState = {
-  user: null,
-  cart: [],
+### Pinia 状态管理
+```typescript
+// stores/user.ts
+export const useUserStore = defineStore('user', () => {
+  const user = ref<User | null>(null)
+  const isLoading = ref(false)
   
-  setUser(userData) {
-    this.user = userData;
-    localStorage.setItem('user', JSON.stringify(userData));
-  },
+  const isAuthenticated = computed(() => !!user.value)
+  const displayName = computed(() => user.value?.firstName || '未知用户')
   
-  addToCart(product) {
-    this.cart.push(product);
-    this.saveCart();
+  const setUser = (userData: User) => {
+    user.value = userData
+    localStorage.setItem('user', JSON.stringify(userData))
   }
-};
+  
+  const fetchUserProfile = async (): Promise<void> => {
+    isLoading.value = true
+    try {
+      const profile = await userApi.getProfile()
+      setUser(profile)
+    } finally {
+      isLoading.value = false
+    }
+  }
+  
+  return {
+    user: readonly(user),
+    isLoading: readonly(isLoading),
+    isAuthenticated,
+    displayName,
+    setUser,
+    fetchUserProfile
+  }
+})
 ```
 
 ## Telegram Web App 集成
 
-### 初始化和配置
-```javascript
-// telegram.js - Telegram Web App 集成
-export const TelegramWebApp = {
-  init() {
-    if (window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.ready();
-      tg.expand();
-      return tg;
-    }
-    // 开发环境模拟
-    return this.createMockTelegram();
-  },
+### 服务层封装
+```typescript
+// services/telegram.ts
+class TelegramService {
+  private tg: any
   
-  // 开发环境模拟对象
-  createMockTelegram() {
-    return {
-      initDataUnsafe: { user: { id: 123, first_name: '测试用户' } },
-      MainButton: { show: () => {}, hide: () => {} },
-      close: () => console.log('关闭 Mini App')
-    };
+  constructor() {
+    this.tg = this.initializeTelegram()
   }
-};
-```
-
-### 用户数据处理
-- 验证 Telegram 用户数据的完整性
-- 处理用户授权和身份验证
-- 安全地传输用户信息到后端
-
-### 主按钮 (MainButton) 使用
-```javascript
-// 动态控制 Telegram 主按钮
-function updateMainButton(text, callback) {
-  const tg = window.Telegram.WebApp;
-  tg.MainButton.text = text;
-  tg.MainButton.show();
-  tg.MainButton.onClick(callback);
+  
+  private initializeTelegram() {
+    if (window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp
+      tg.ready()
+      tg.expand()
+      return tg
+    }
+    return this.createMockTelegram() // 开发环境模拟
+  }
+  
+  getUser(): TelegramUser | null {
+    return this.tg.initDataUnsafe?.user || null
+  }
+  
+  getColorScheme(): 'light' | 'dark' {
+    return this.tg.colorScheme || 'light'
+  }
+  
+  impactFeedback(style: 'light' | 'medium' | 'heavy' = 'medium') {
+    this.tg.HapticFeedback?.impactOccurred(style)
+  }
+  
+  showBackButton() {
+    this.tg.BackButton?.show()
+  }
+  
+  hideBackButton() {
+    this.tg.BackButton?.hide()
+  }
 }
 
-// 示例：购买按钮
-updateMainButton('立即购买 ¥99', () => {
-  // 处理购买逻辑
-  processPurchase();
-});
+export const telegramService = new TelegramService()
+```
+
+### 主按钮控制
+```typescript
+// 组件中使用
+<script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue'
+
+const handlePurchase = () => {
+  telegramService.impactFeedback('medium')
+}
+
+onMounted(() => {
+  const tg = window.Telegram?.WebApp
+  if (tg?.MainButton) {
+    tg.MainButton.text = '立即购买 ¥99'
+    tg.MainButton.show()
+    tg.MainButton.onClick(handlePurchase)
+  }
+})
+
+onUnmounted(() => {
+  const tg = window.Telegram?.WebApp
+  tg?.MainButton?.hide()
+})
+</script>
 ```
 
 ## API 集成规范
 
-### HTTP 客户端
-```javascript
-// apiClient.js - 统一的 API 客户端
-class ApiClient {
-  constructor(baseURL) {
-    this.baseURL = baseURL;
+### API 客户端
+```typescript
+// services/api/client.ts
+export class ApiClient {
+  private instance: AxiosInstance
+  
+  constructor(config: ApiClientConfig) {
+    this.instance = axios.create({
+      baseURL: config.baseURL,
+      timeout: config.timeout,
+      headers: { 'Content-Type': 'application/json' }
+    })
+    
+    this.setupInterceptors(config.enableAuth)
   }
   
-  async request(method, endpoint, data = null) {
-    const url = `${this.baseURL}${endpoint}`;
-    const options = {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Telegram-Init-Data': this.getTelegramInitData()
+  private setupInterceptors(enableAuth: boolean) {
+    this.instance.interceptors.request.use((config) => {
+      if (enableAuth) {
+        const authHeader = TelegramAuthService.generateAuthHeader()
+        if (authHeader) {
+          config.headers['X-Telegram-Init-Data'] = authHeader
+        }
       }
-    };
+      return config
+    })
     
-    if (data) {
-      options.body = JSON.stringify(data);
-    }
-    
-    const response = await fetch(url, options);
-    
-    if (!response.ok) {
-      throw new Error(`API 请求失败: ${response.status}`);
-    }
-    
-    return response.json();
+    this.instance.interceptors.response.use(
+      (response) => response,
+      (error) => Promise.reject(this.handleApiError(error))
+    )
+  }
+  
+  async get<T>(url: string): Promise<T> {
+    const response = await this.instance.get(url)
+    return response.data
+  }
+  
+  async post<T>(url: string, data?: any): Promise<T> {
+    const response = await this.instance.post(url, data)
+    return response.data
   }
 }
+
+export const apiClient = new ApiClient({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
+  timeout: 10000,
+  enableAuth: true
+})
 ```
 
-### 数据验证
-- 客户端输入验证 (validator.js)
-- 服务端数据验证
-- 用户友好的验证错误提示
+### 专用 API 服务
+```typescript
+// services/api/product.ts
+export class ProductApi {
+  async getProducts(filters?: ProductFilters): Promise<ProductListResponse> {
+    const params = new URLSearchParams()
+    if (filters?.countryCode) params.append('country', filters.countryCode)
+    return apiClient.get(`/products?${params.toString()}`)
+  }
+  
+  async getProduct(id: string): Promise<Product> {
+    return apiClient.get(`/products/${id}`)
+  }
+}
+
+export const productApi = new ProductApi()
+```
 
 ## 性能优化
 
-### 资源加载
-- 图片懒加载
-- 代码分割和按需加载
-- 静态资源缓存策略
+### Vue 3 优化
+```typescript
+// 组件懒加载
+const ProductDetailPage = defineAsyncComponent(() => 
+  import('@/views/ProductDetailPage.vue')
+)
 
-### 用户体验
-- 加载状态指示器
-- 骨架屏 (Skeleton Loading)
-- 平滑的页面转场动画
-- 离线状态处理
+// v-memo 优化列表渲染
+<template>
+  <div v-for="product in products" :key="product.id" v-memo="[product.id, product.price]">
+    <ProductCard :product="product" />
+  </div>
+</template>
+```
 
-### 构建优化
-```javascript
-// vite.config.js - 构建优化配置
-export default {
+### 用户体验优化
+```vue
+<template>
+  <!-- 骨架屏 -->
+  <v-skeleton-loader v-if="isLoading" type="card" />
+  
+  <!-- 无限滚动 -->
+  <v-infinite-scroll @load="loadMore" :loading="isLoadingMore">
+    <ProductCard v-for="product in products" :key="product.id" :product="product" />
+  </v-infinite-scroll>
+</template>
+```
+
+### Vite 构建优化
+```typescript
+// vite.config.ts
+export default defineConfig({
   build: {
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['qrcode'],
-          utils: ['src/utils/formatter.js', 'src/utils/validator.js']
+          vendor: ['vue', 'vue-router', 'pinia'],
+          vuetify: ['vuetify'],
+          utils: ['axios', 'dayjs', 'qrcode']
         }
       }
-    },
-    minify: 'terser',
-    sourcemap: false
+    }
   }
-};
+})
 ```
 
 ## 测试和调试
 
 ### 开发调试
-- 使用浏览器开发者工具
-- Telegram Web App 调试模式
-- 移动设备调试 (Chrome DevTools)
-
-### 测试策略
-- 功能测试：核心用户流程
-- 兼容性测试：不同 Telegram 客户端
-- 性能测试：加载速度和响应时间
+```typescript
+// VConsole 移动端调试 (plugins/vconsole.ts)
+export function initVConsole() {
+  const isDev = import.meta.env.DEV
+  const hasDebugParam = new URLSearchParams(window.location.search).get('debug') === 'true'
+  
+  if (isDev || hasDebugParam) {
+    new VConsole({ theme: 'dark' })
+  }
+}
+```
 
 ### 错误监控
-```javascript
+```typescript
 // 全局错误处理
 window.addEventListener('error', (event) => {
-  console.error('JavaScript 错误:', event.error);
-  // 发送错误报告到后端
-  reportError(event.error);
-});
+  console.error('[Global] JavaScript 错误:', event.error)
+  reportError({
+    type: 'javascript_error',
+    message: event.message,
+    stack: event.error?.stack
+  })
+})
 
 window.addEventListener('unhandledrejection', (event) => {
-  console.error('未处理的 Promise 拒绝:', event.reason);
-  reportError(event.reason);
-});
+  console.error('[Global] Promise 拒绝:', event.reason)
+  reportError({
+    type: 'promise_rejection',
+    reason: event.reason
+  })
+})
+
+async function reportError(errorData: any) {
+  try {
+    await fetch('/api/errors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(errorData)
+    })
+  } catch (error) {
+    console.error('发送错误报告失败:', error)
+  }
+}
+```
+
+### 组件测试
+```typescript
+// 组件单元测试
+import { mount } from '@vue/test-utils'
+import ProductCard from '@/components/ProductCard.vue'
+
+describe('ProductCard', () => {
+  it('正确渲染产品信息', () => {
+    const wrapper = mount(ProductCard, {
+      props: { product: { id: '1', name: '测试产品', price: 99.99 } }
+    })
+    
+    expect(wrapper.text()).toContain('测试产品')
+    expect(wrapper.text()).toContain('¥99.99')
+  })
+})
 ```
