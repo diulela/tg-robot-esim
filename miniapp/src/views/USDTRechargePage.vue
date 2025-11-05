@@ -1,16 +1,12 @@
 <template>
   <div class="usdt-recharge-page">
     <h1 class="page-title">USDT 充值</h1>
-        <!-- 快捷金额选择 -->
+    <!-- 快捷金额选择 -->
     <div class="quick-amounts">
       <h4 class="quick-title">快捷选择</h4>
       <div class="quick-options">
-        <button 
-          v-for="quickAmount in quickAmounts" 
-          :key="quickAmount"
-          @click="selectQuickAmount(quickAmount)"
-          :class="['quick-option', { active: amount == quickAmount }]"
-        >
+        <button v-for="quickAmount in quickAmounts" :key="quickAmount" @click="selectQuickAmount(quickAmount)"
+          :class="['quick-option', { active: amount == quickAmount }]">
           {{ quickAmount }} USDT
         </button>
       </div>
@@ -20,16 +16,8 @@
     <div class="amount-section">
       <h3 class="section-title">充值金额</h3>
       <div class="amount-input-container">
-        <input 
-          v-model="amount" 
-          type="number" 
-          placeholder="请输入充值金额"
-          class="amount-input"
-          @input="validateAmount"
-          min="10"
-          max="10000"
-          step="0.01"
-        />
+        <input v-model="amount" type="number" placeholder="请输入充值金额" class="amount-input" @input="validateAmount"
+          min="10" max="10000" step="0.01" />
         <span class="currency-label">USDT</span>
       </div>
       <div class="amount-tips">
@@ -44,11 +32,7 @@
 
     <!-- 充值按钮 -->
     <div class="recharge-actions">
-      <button 
-        @click="createRechargeOrder" 
-        :disabled="!canRecharge || loading"
-        class="recharge-btn"
-      >
+      <button @click="createRechargeOrder" :disabled="!canRecharge || loading" class="recharge-btn">
         <span v-if="loading">创建订单中...</span>
         <span v-else>创建充值订单</span>
       </button>
@@ -109,44 +93,44 @@ export default {
   setup() {
     const router = useRouter()
     const appStore = useAppStore()
-    
+
     const amount = ref('')
     const amountError = ref('')
     const loading = ref(false)
-    
+
     // 快捷金额选项
     const quickAmounts = [50, 100, 200, 500]
-    
+
     // 计算属性
     const canRecharge = computed(() => {
       const amountNum = parseFloat(amount.value)
       return amountNum >= 10 && amountNum <= 10000 && !amountError.value
     })
-    
+
     // 方法
     const validateAmount = () => {
       const amountNum = parseFloat(amount.value)
       amountError.value = ''
-      
+
       if (!amount.value) {
         return
       }
-      
+
       if (isNaN(amountNum) || amountNum <= 0) {
         amountError.value = '请输入有效的金额'
         return
       }
-      
+
       if (amountNum < 10) {
         amountError.value = '充值金额不能低于 10 USDT'
         return
       }
-      
+
       if (amountNum > 10000) {
         amountError.value = '充值金额不能超过 10,000 USDT'
         return
       }
-      
+
       // 检查小数位数
       const decimalPlaces = (amount.value.split('.')[1] || '').length
       if (decimalPlaces > 2) {
@@ -154,35 +138,62 @@ export default {
         return
       }
     }
-    
+
     const selectQuickAmount = (quickAmount) => {
       amount.value = quickAmount.toString()
       validateAmount()
     }
-    
+
     const createRechargeOrder = async () => {
       if (!canRecharge.value || loading.value) return
-      
+
       loading.value = true
-      
+
       try {
         // 调用API创建充值订单
         const response = await api.wallet.createRechargeOrder({
           amount: amount.value
         })
-        
+
+        console.log('充值订单创建响应:', response)
+        console.log('响应类型:', typeof response)
+        console.log('order_no 字段:', response.order_no)
+        console.log('order_no 类型:', typeof response.order_no)
+
+        // 检查响应数据
+        if (!response) {
+          console.error('响应为空:', response)
+          appStore.showError('创建充值订单失败：服务器无响应')
+          return
+        }
+
+        if (!response.order_no) {
+          console.error('响应数据格式错误，缺少 order_no 字段:', response)
+          console.error('响应对象的所有键:', Object.keys(response))
+          appStore.showError('创建充值订单失败：响应数据格式错误')
+          return
+        }
+
         // 显示成功提示
         appStore.showSuccess('充值订单创建成功')
-        
+
         // 跳转到充值详情页面
-        router.push({
-          name: 'USDTRechargeDetail',
-          params: { orderNo: response.order_no }
-        })
-        
+        console.log('准备跳转到订单详情页面，订单号:', response.order_no)
+
+        try {
+          await router.push({
+            name: 'USDTRechargeDetail',
+            params: { orderNo: response.order_no }
+          })
+          console.log('路由跳转成功')
+        } catch (routerError) {
+          console.error('路由跳转失败:', routerError)
+          appStore.showError('页面跳转失败')
+        }
+
       } catch (error) {
         console.error('创建充值订单失败:', error)
-        
+
         // 根据错误类型显示不同的提示
         if (error.code === '40001') {
           amountError.value = error.message || '充值金额低于最小限额'
@@ -197,7 +208,7 @@ export default {
         loading.value = false
       }
     }
-    
+
     return {
       amount,
       amountError,
