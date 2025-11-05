@@ -114,17 +114,29 @@ export interface Wallet {
 
 // 钱包交易类型
 export interface WalletTransaction {
-  id: string
-  walletId: string
-  type: 'recharge' | 'payment' | 'refund' | 'bonus'
-  amount: number
-  currency: string
-  status: 'pending' | 'completed' | 'failed'
+  id: number
+  user_id: number
+  type: 'recharge' | 'payment' | 'refund' | 'freeze' | 'unfreeze'
+  amount: string
+  balance_before: string
+  balance_after: string
+  status: 'pending' | 'completed' | 'failed' | 'cancelled'
   description: string
-  orderId?: string
-  transactionHash?: string
-  createdAt: string
-  completedAt?: string
+  related_type: string
+  related_id: string
+  tx_hash: string
+  metadata?: string
+  created_at: string
+  updated_at: string
+}
+
+// 钱包历史统计类型
+export interface WalletHistoryStats {
+  total_records: number
+  total_income: string
+  total_expense: string
+  pending_amount: string
+  completed_amount: string
 }
 
 // API 响应基础类型

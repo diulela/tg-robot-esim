@@ -170,3 +170,45 @@ type RechargeService interface {
 	// GenerateExactAmount 生成唯一的精确金额
 	GenerateExactAmount(ctx context.Context, baseAmount string) (string, error)
 }
+
+// WalletHistoryFilters 钱包历史筛选条件
+type WalletHistoryFilters struct {
+	UserID    int64                      `json:"user_id"`
+	Type      models.WalletHistoryType   `json:"type"`
+	Status    models.WalletHistoryStatus `json:"status"`
+	StartDate string                     `json:"start_date"`
+	EndDate   string                     `json:"end_date"`
+	Limit     int                        `json:"limit"`
+	Offset    int                        `json:"offset"`
+}
+
+// WalletHistoryStats 钱包历史统计
+type WalletHistoryStats struct {
+	TotalRecords    int64  `json:"total_records"`
+	TotalIncome     string `json:"total_income"`     // 总收入（充值+退款）
+	TotalExpense    string `json:"total_expense"`    // 总支出（支付）
+	PendingAmount   string `json:"pending_amount"`   // 处理中金额
+	CompletedAmount string `json:"completed_amount"` // 已完成金额
+}
+
+// WalletHistoryService 定义钱包历史服务接口
+// 负责管理用户钱包交易历史记录的业务逻辑
+type WalletHistoryService interface {
+	// GetWalletHistory 获取钱包历史记录
+	GetWalletHistory(ctx context.Context, userID int64, filters WalletHistoryFilters) ([]*models.WalletHistory, int64, error)
+
+	// GetWalletHistoryStats 获取钱包历史统计
+	GetWalletHistoryStats(ctx context.Context, userID int64) (*WalletHistoryStats, error)
+
+	// GetHistoryRecord 获取单条历史记录详情
+	GetHistoryRecord(ctx context.Context, recordID uint, userID int64) (*models.WalletHistory, error)
+
+	// CreateRechargeRecord 创建充值记录
+	CreateRechargeRecord(ctx context.Context, userID int64, amount, balanceBefore, balanceAfter string, relatedID, txHash string) error
+
+	// CreatePaymentRecord 创建支付记录
+	CreatePaymentRecord(ctx context.Context, userID int64, amount, balanceBefore, balanceAfter string, relatedID, description string) error
+
+	// UpdateRecordStatus 更新记录状态
+	UpdateRecordStatus(ctx context.Context, recordID uint, status models.WalletHistoryStatus) error
+}

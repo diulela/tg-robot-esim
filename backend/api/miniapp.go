@@ -9,15 +9,16 @@ import (
 
 	"tg-robot-sim/pkg/telegram"
 	"tg-robot-sim/services"
+	"tg-robot-sim/storage/models"
 )
 
 // MiniAppHandler Mini App API 处理器
 type MiniAppApiService struct {
-	productService     services.ProductService
-	walletService      services.WalletService
-	orderService       services.OrderService
-	transactionService services.TransactionService
-	rechargeService    services.RechargeService
+	productService       services.ProductService
+	walletService        services.WalletService
+	orderService         services.OrderService
+	walletHistoryService services.WalletHistoryService
+	rechargeService      services.RechargeService
 }
 
 // NewMiniAppHandler 创建 Mini App 处理器实例
@@ -25,15 +26,15 @@ func NewMiniAppApiService(
 	productService services.ProductService,
 	walletService services.WalletService,
 	orderService services.OrderService,
-	transactionService services.TransactionService,
+	walletHistoryService services.WalletHistoryService,
 	rechargeService services.RechargeService,
 ) *MiniAppApiService {
 	return &MiniAppApiService{
-		productService:     productService,
-		walletService:      walletService,
-		orderService:       orderService,
-		transactionService: transactionService,
-		rechargeService:    rechargeService,
+		productService:       productService,
+		walletService:        walletService,
+		orderService:         orderService,
+		walletHistoryService: walletHistoryService,
+		rechargeService:      rechargeService,
 	}
 }
 
@@ -165,8 +166,10 @@ func (h *MiniAppApiService) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/miniapp/purchase", h.handlePurchase)
 	mux.HandleFunc("/api/miniapp/orders", h.handleOrders)
 
-	// 交易相关
-	mux.HandleFunc("/api/miniapp/transactions", h.handleTransactions)
+	// 钱包历史相关
+	mux.HandleFunc("/api/miniapp/wallet/history", h.handleWalletHistory)
+	mux.HandleFunc("/api/miniapp/wallet/history/stats", h.handleWalletHistoryStats)
+	mux.HandleFunc("/api/miniapp/wallet/history/", h.handleHistoryRecord)
 }
 
 // handleProducts 处理产品列表请求
@@ -447,8 +450,8 @@ func (h *MiniAppApiService) handleOrders(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-// handleTransactions 处理交易历史请求
-func (h *MiniAppApiService) handleTransactions(w http.ResponseWriter, r *http.Request) {
+// handleWalletHistory 处理钱包历史记录请求
+func (h *MiniAppApiService) handleWalletHistory(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed", "")
 		return
@@ -463,22 +466,100 @@ func (h *MiniAppApiService) handleTransactions(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// 获取查询参数
-	limit := h.parseIntParam(r, "limit", 20)
-	offset := h.parseIntParam(r, "offset", 0)
+	// 构建筛选条件
+	filters := services.WalletHistoryFilters{
+		UserID:    userID,
+		Type:      models.WalletHistoryType(r.URL.Query().Get("type")),
+		Status:    models.WalletHistoryStatus(r.URL.Query().Get("status")),
+		StartDate: r.URL.Query().Get("start_date"),
+		EndDate:   r.URL.Query().Get("end_date"),
+		Limit:     h.parseIntParam(r, "limit", 20),
+		Offset:    h.parseIntParam(r, "offset", 0),
+	}
 
-	// 获取交易历史
-	transactions, err := h.transactionService.GetTransactionHistory(ctx, userID, limit, offset)
+	// 获取钱包历史记录
+	histories, total, err := h.walletHistoryService.GetWalletHistory(ctx, userID, filters)
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, "Failed to get transactions", err.Error())
+		h.sendError(w, http.StatusInternalServerError, "Failed to get wallet history", err.Error())
 		return
 	}
 
-	h.sendSuccess(w, map[string]interface{}{
-		"transactions": transactions,
-		"limit":        limit,
-		"offset":       offset,
-	})
+	// 返回响应
+	response := map[string]interface{}{
+		"records": histories,
+		"total":   total,
+		"limit":   filters.Limit,
+		"offset":  filters.Offset,
+	}
+
+	h.sendSuccess(w, response)
+}
+
+// handleWalletHistoryStats 处理钱包历史统计请求
+func (h *MiniAppApiService) handleWalletHistoryStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed", "")
+		return
+	}
+
+	ctx := r.Context()
+
+	// 获取用户 ID
+	userID, err := h.getUserIDFromContext(r)
+	if err != nil || userID == 0 {
+		h.sendError(w, http.StatusUnauthorized, "Unauthorized", "Invalid user ID")
+		return
+	}
+
+	// 获取钱包历史统计
+	stats, err := h.walletHistoryService.GetWalletHistoryStats(ctx, userID)
+	if err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to get wallet stats", err.Error())
+		return
+	}
+
+	h.sendSuccess(w, stats)
+}
+
+// handleHistoryRecord 处理单条历史记录详情请求
+func (h *MiniAppApiService) handleHistoryRecord(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed", "")
+		return
+	}
+
+	ctx := r.Context()
+
+	// 获取用户 ID
+	userID, err := h.getUserIDFromContext(r)
+	if err != nil || userID == 0 {
+		h.sendError(w, http.StatusUnauthorized, "Unauthorized", "Invalid user ID")
+		return
+	}
+
+	// 从 URL 路径提取记录 ID
+	// /api/miniapp/wallet/history/123
+	path := r.URL.Path
+	recordIDStr := strings.TrimPrefix(path, "/api/miniapp/wallet/history/")
+	if recordIDStr == "" || recordIDStr == path {
+		h.sendError(w, http.StatusBadRequest, "Record ID is required", "")
+		return
+	}
+
+	recordID, err := strconv.ParseUint(recordIDStr, 10, 32)
+	if err != nil {
+		h.sendError(w, http.StatusBadRequest, "Invalid record ID", err.Error())
+		return
+	}
+
+	// 获取历史记录详情
+	record, err := h.walletHistoryService.GetHistoryRecord(ctx, uint(recordID), userID)
+	if err != nil {
+		h.sendError(w, http.StatusNotFound, "Record not found", err.Error())
+		return
+	}
+
+	h.sendSuccess(w, record)
 }
 
 // handleRechargeDetail 处理充值订单详情和状态检查请求

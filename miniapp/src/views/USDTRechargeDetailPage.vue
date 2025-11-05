@@ -73,10 +73,6 @@
 
       <!-- 操作按钮 -->
       <div class="actions-section">
-        <button v-if="order.status === 'pending'" @click="checkStatus" :disabled="checking" class="check-btn">
-          <span v-if="checking">检查中...</span>
-          <span v-else>我已转账，检查状态</span>
-        </button>
 
         <button v-if="order.status === 'confirmed'" @click="goToWallet" class="wallet-btn">
           查看钱包

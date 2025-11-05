@@ -55,7 +55,7 @@ func main() {
 	walletService := services.NewWalletService(db.GetWalletRepository(), db.GetRechargeOrderRepository(), nil)
 	productService := services.NewProductService(db.GetProductRepository())
 	orderService := services.NewOrderService(db.GetOrderRepository(), db.GetProductRepository(), walletService)
-	transactionService := services.NewTransactionService(db.GetTransactionRepository())
+	walletHistoryService := services.NewWalletHistoryService(db.GetWalletHistoryRepository())
 
 	// 创建模拟服务用于测试
 	blockchainService := services.NewMockBlockchainService()
@@ -74,7 +74,7 @@ func main() {
 	)
 
 	// 创建 HTTP 服务器
-	httpServer := server.NewMiniAppHTTPServer(cfg, productService, walletService, orderService, transactionService, rechargeService)
+	httpServer := server.NewMiniAppHTTPServer(cfg, productService, walletService, orderService, walletHistoryService, rechargeService)
 
 	// 启动区块链监控定时任务
 	go func() {

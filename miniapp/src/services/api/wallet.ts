@@ -37,13 +37,32 @@ export class WalletApi {
     return apiClient.get('/miniapp/wallet/balance')
   }
 
-  // 获取交易记录
+  // 获取钱包历史记录
   async getTransactions(params?: { 
     limit?: number
     offset?: number
-    type?: string 
+    type?: string
+    status?: string
+    start_date?: string
+    end_date?: string
   }): Promise<PaginatedResponse<WalletTransaction>> {
-    return apiClient.get('/miniapp/transactions', params)
+    return apiClient.get('/miniapp/wallet/history', params)
+  }
+
+  // 获取钱包历史统计
+  async getWalletHistoryStats(): Promise<{
+    total_records: number
+    total_income: string
+    total_expense: string
+    pending_amount: string
+    completed_amount: string
+  }> {
+    return apiClient.get('/miniapp/wallet/history/stats')
+  }
+
+  // 获取单条历史记录详情
+  async getHistoryRecord(recordId: number): Promise<WalletTransaction> {
+    return apiClient.get(`/miniapp/wallet/history/${recordId}`)
   }
 
   // 钱包充值（旧版本，保持兼容性）

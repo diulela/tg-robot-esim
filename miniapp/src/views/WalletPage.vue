@@ -120,13 +120,13 @@ export default {
 
         // 加载最近交易记录
         const transactionData = await api.wallet.getTransactions({ limit: 5 })
-        recentTransactions.value = transactionData.items.map(transaction => ({
+        recentTransactions.value = transactionData.records.map(transaction => ({
           id: transaction.id,
           type: transaction.type,
           title: getTransactionTitle(transaction.type, transaction.description),
-          amount: transaction.amount,
+          amount: parseFloat(transaction.amount),
           status: transaction.status,
-          createdAt: new Date(transaction.createdAt)
+          createdAt: new Date(transaction.created_at)
         }))
 
       } catch (err) {

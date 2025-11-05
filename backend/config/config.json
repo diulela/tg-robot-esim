@@ -14,7 +14,8 @@
     "conn_max_life": "1h"
   },
   "blockchain": {
-    "tron_api_key": "15f771d4-50db-4bb4-ac68-0db28439a7a0",
+    "tron_api_key2": "15f771d4-50db-4bb4-ac68-0db28439a7a0",
+    "tron_api_key": "10b3788a-56f9-4cbc-b0b5-340c0ac4e5cf",
     "tron_endpoint": "https://api.trongrid.io",
     "monitor_interval": "30s",
     "required_confirmations": 5,

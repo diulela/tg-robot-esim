@@ -15,7 +15,7 @@ func NewMiniAppHTTPServer(
 	productService services.ProductService,
 	walletService services.WalletService,
 	orderService services.OrderService,
-	transactionService services.TransactionService,
+	walletHistoryService services.WalletHistoryService,
 	rechargeService services.RechargeService,
 ) *http.Server {
 	mux := http.NewServeMux()
@@ -25,7 +25,7 @@ func NewMiniAppHTTPServer(
 		productService,
 		walletService,
 		orderService,
-		transactionService,
+		walletHistoryService,
 		rechargeService,
 	)
 

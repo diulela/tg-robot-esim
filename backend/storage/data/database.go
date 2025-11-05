@@ -30,6 +30,7 @@ type Database struct {
 	walletRepo        repository.WalletRepository
 	orderRepo         repository.OrderRepository
 	rechargeOrderRepo repository.RechargeOrderRepository
+	walletHistoryRepo repository.WalletHistoryRepository
 }
 
 // NewDatabase 创建数据库管理器
@@ -100,6 +101,7 @@ func NewDatabase(cfg *config.DatabaseConfig) (*Database, error) {
 	database.walletRepo = repository.NewWalletRepository(db)
 	database.orderRepo = repository.NewOrderRepository(db)
 	database.rechargeOrderRepo = repository.NewRechargeOrderRepository(db)
+	database.walletHistoryRepo = repository.NewWalletHistoryRepository(db)
 
 	return database, nil
 }
@@ -117,6 +119,7 @@ func (d *Database) AutoMigrate() error {
 		&models.Transaction{},
 		&models.Product{},
 		&models.ProductDetail{},
+		&models.WalletHistory{},
 	)
 }
 
@@ -173,6 +176,11 @@ func (d *Database) GetOrderRepository() repository.OrderRepository {
 
 func (d *Database) GetRechargeOrderRepository() repository.RechargeOrderRepository {
 	return d.rechargeOrderRepo
+}
+
+// GetWalletHistoryRepository 获取钱包历史仓库
+func (d *Database) GetWalletHistoryRepository() repository.WalletHistoryRepository {
+	return d.walletHistoryRepo
 }
 
 // Transaction 执行数据库事务
