@@ -170,6 +170,9 @@ export default {
           amount: amount.value
         })
         
+        // 显示成功提示
+        appStore.showSuccess('充值订单创建成功')
+        
         // 跳转到充值详情页面
         router.push({
           name: 'USDTRechargeDetail',
@@ -180,10 +183,12 @@ export default {
         console.error('创建充值订单失败:', error)
         
         // 根据错误类型显示不同的提示
-        if (error.code === 40001) {
-          amountError.value = error.message
-        } else if (error.code === 40002) {
-          amountError.value = error.message
+        if (error.code === '40001') {
+          amountError.value = error.message || '充值金额低于最小限额'
+        } else if (error.code === '40002') {
+          amountError.value = error.message || '充值金额格式错误'
+        } else if (error.code === 'NETWORK_ERROR') {
+          appStore.showError('网络连接失败，请检查网络设置')
         } else {
           appStore.showError(error.message || '创建充值订单失败，请稍后重试')
         }

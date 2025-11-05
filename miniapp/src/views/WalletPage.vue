@@ -28,6 +28,11 @@
         <span class="action-text">充值</span>
       </div>
       
+      <div class="action-item" @click="goToRechargeHistory" data-testid="recharge-orders">
+        <div class="action-icon">📋</div>
+        <span class="action-text">充值订单</span>
+      </div>
+      
       <div class="action-item" @click="showTransactionHistory">
         <div class="action-icon">📊</div>
         <span class="action-text">交易记录</span>
@@ -36,11 +41,6 @@
       <div class="action-item" @click="showWithdrawDialog">
         <div class="action-icon">💰</div>
         <span class="action-text">提现</span>
-      </div>
-      
-      <div class="action-item" @click="showSettings">
-        <div class="action-icon">⚙️</div>
-        <span class="action-text">设置</span>
       </div>
     </div>
 
@@ -54,6 +54,12 @@
       <div v-if="loading" class="loading-container">
         <div class="loading-spinner"></div>
         <p>正在加载交易记录...</p>
+      </div>
+      
+      <div v-else-if="error" class="error-container">
+        <div class="error-icon">⚠️</div>
+        <p class="error-message">{{ error.message || '加载失败' }}</p>
+        <button @click="loadWalletData" class="retry-btn">重试</button>
       </div>
       
       <div v-else-if="recentTransactions.length > 0" class="transactions-list">
@@ -71,7 +77,7 @@
           </div>
           
           <div class="transaction-info">
-            <div class="transaction-title">{{ getTransactionTitle(transaction) }}</div>
+            <div class="transaction-title">{{ transaction.title }}</div>
             <div class="transaction-time">{{ formatTime(transaction.createdAt) }}</div>
           </div>
           
@@ -93,6 +99,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
+import api from '@/services/api'
 
 export default {
   name: 'WalletPage',
@@ -102,37 +109,42 @@ export default {
     
     const loading = ref(false)
     const walletBalance = ref(0)
+    const frozenBalance = ref(0)
+    const totalIncome = ref(0)
+    const totalExpense = ref(0)
     const recentTransactions = ref([])
+    const error = ref(null)
     
     // 方法
     const loadWalletData = async () => {
       loading.value = true
+      error.value = null
+      
       try {
-        // 模拟加载钱包数据
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        // 调用钱包 API 获取余额
+        const walletData = await api.wallet.getWallet()
         
-        walletBalance.value = 128.50
-        recentTransactions.value = [
-          {
-            id: '1',
-            type: 'purchase',
-            title: '购买 eSIM 套餐',
-            amount: -29.90,
-            status: 'completed',
-            createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000)
-          },
-          {
-            id: '2',
-            type: 'recharge',
-            title: '钱包充值',
-            amount: 100.00,
-            status: 'completed',
-            createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000)
-          }
-        ]
-      } catch (error) {
-        console.error('加载钱包数据失败:', error)
-        appStore.showError('加载钱包数据失败，请稍后重试')
+        // 更新钱包余额数据
+        walletBalance.value = walletData.balance || 0
+        frozenBalance.value = walletData.frozenAmount || 0
+        totalIncome.value = walletData.totalRecharge || 0
+        totalExpense.value = walletData.totalSpent || 0
+        
+        // 加载最近交易记录
+        const transactionData = await api.wallet.getTransactions({ limit: 5 })
+        recentTransactions.value = transactionData.items.map(transaction => ({
+          id: transaction.id,
+          type: transaction.type,
+          title: getTransactionTitle(transaction.type, transaction.description),
+          amount: transaction.amount,
+          status: transaction.status,
+          createdAt: new Date(transaction.createdAt)
+        }))
+        
+      } catch (err) {
+        console.error('加载钱包数据失败:', err)
+        error.value = err
+        appStore.showError(err.message || '加载钱包数据失败，请稍后重试')
       } finally {
         loading.value = false
       }
@@ -141,6 +153,21 @@ export default {
     const refreshBalance = async () => {
       await loadWalletData()
       appStore.showSuccess('余额已刷新')
+    }
+    
+    // 获取交易类型的中文标题
+    const getTransactionTitle = (type, description) => {
+      if (description) {
+        return description
+      }
+      
+      const typeMap = {
+        'recharge': '钱包充值',
+        'payment': '购买 eSIM 套餐',
+        'refund': '订单退款',
+        'bonus': '奖励积分'
+      }
+      return typeMap[type] || '其他交易'
     }
     
     const formatAmount = (amount) => {
@@ -162,9 +189,7 @@ export default {
       }
     }
     
-    const getTransactionTitle = (transaction) => {
-      return transaction.title || '未知交易'
-    }
+
     
     const getAmountClass = (transaction) => {
       return transaction.amount > 0 ? 'amount-positive' : 'amount-negative'
@@ -177,6 +202,10 @@ export default {
     
     const goToRecharge = () => {
       router.push({ name: 'WalletRecharge' })
+    }
+    
+    const goToRechargeHistory = () => {
+      router.push({ name: 'USDTRechargeHistory' })
     }
     
     const showWithdrawDialog = () => {
@@ -207,7 +236,11 @@ export default {
     return {
       loading,
       walletBalance,
+      frozenBalance,
+      totalIncome,
+      totalExpense,
       recentTransactions,
+      error,
       refreshBalance,
       formatAmount,
       formatTime,
@@ -215,6 +248,7 @@ export default {
       getAmountClass,
       getAmountText,
       goToRecharge,
+      goToRechargeHistory,
       showWithdrawDialog,
       showTransactionHistory,
       showAllTransactions,
@@ -493,6 +527,41 @@ export default {
   font-size: 14px;
   color: var(--tg-theme-hint-color, #666666);
   margin: 0;
+}
+
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.error-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+  opacity: 0.7;
+}
+
+.error-message {
+  font-size: 14px;
+  color: var(--tg-theme-hint-color, #666666);
+  margin: 0 0 16px 0;
+}
+
+.retry-btn {
+  padding: 8px 16px;
+  background: var(--tg-theme-button-color, #0088cc);
+  color: var(--tg-theme-button-text-color, #ffffff);
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.retry-btn:hover {
+  opacity: 0.8;
 }
 
 @media (max-width: 480px) {

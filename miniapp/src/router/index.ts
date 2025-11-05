@@ -119,6 +119,27 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/wallet/recharge/detail/:orderNo',
+    name: 'USDTRechargeDetail',
+    component: () => import('@/views/USDTRechargeDetailPage.vue'),
+    meta: {
+      title: '充值详情',
+      showBackButton: true,
+      requiresAuth: true
+    },
+    props: true
+  },
+  {
+    path: '/wallet/recharge/history',
+    name: 'USDTRechargeHistory',
+    component: () => import('@/views/USDTRechargeHistoryPage.vue'),
+    meta: {
+      title: '充值订单',
+      showBackButton: true,
+      requiresAuth: true
+    }
+  },
+  {
     path: '/profile',
     name: 'Profile',
     component: () => import('@/views/ProfilePage.vue'),
