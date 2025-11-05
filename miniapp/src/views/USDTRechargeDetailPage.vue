@@ -21,7 +21,7 @@
       <!-- 充值信息 -->
       <div class="recharge-info">
         <h3 class="section-title">充值信息</h3>
-        
+
         <!-- 精确金额 -->
         <div class="info-item">
           <div class="info-label">转账金额</div>
@@ -47,15 +47,6 @@
           </div>
           <div class="info-note">TRON (TRC20) 网络地址</div>
         </div>
-
-        <!-- 二维码 -->
-        <div class="qr-section">
-          <div class="qr-container">
-            <canvas ref="qrCanvas" class="qr-code"></canvas>
-          </div>
-          <div class="qr-label">扫码转账</div>
-        </div>
-
         <!-- 订单信息 -->
         <div class="order-info">
           <div class="order-item">
@@ -82,24 +73,15 @@
 
       <!-- 操作按钮 -->
       <div class="actions-section">
-        <button 
-          v-if="order.status === 'pending'"
-          @click="checkStatus" 
-          :disabled="checking"
-          class="check-btn"
-        >
+        <button v-if="order.status === 'pending'" @click="checkStatus" :disabled="checking" class="check-btn">
           <span v-if="checking">检查中...</span>
           <span v-else>我已转账，检查状态</span>
         </button>
-        
-        <button 
-          v-if="order.status === 'confirmed'"
-          @click="goToWallet"
-          class="wallet-btn"
-        >
+
+        <button v-if="order.status === 'confirmed'" @click="goToWallet" class="wallet-btn">
           查看钱包
         </button>
-  
+
       </div>
 
       <!-- 充值说明 -->
@@ -113,7 +95,7 @@
           <li>确认并发送转账</li>
           <li>转账完成后点击"我已转账"按钮</li>
         </ol>
-        
+
         <div class="warning-box">
           <h5>⚠️ 重要提醒</h5>
           <ul>
@@ -147,7 +129,7 @@ export default {
     const route = useRoute()
     const router = useRouter()
     const appStore = useAppStore()
-    
+
     const order = ref(null)
     const loading = ref(true)
     const checking = ref(false)
@@ -155,7 +137,7 @@ export default {
     const qrCanvas = ref(null)
     const countdownTimer = ref(null)
     const remainingTime = ref(0)
-    
+
     // 计算属性
     const statusClass = computed(() => {
       if (!order.value) return ''
@@ -166,7 +148,7 @@ export default {
         default: return 'status-pending'
       }
     })
-    
+
     const statusIcon = computed(() => {
       if (!order.value) return ''
       switch (order.value.status) {
@@ -176,7 +158,7 @@ export default {
         default: return '⏳'
       }
     })
-    
+
     const statusText = computed(() => {
       if (!order.value) return ''
       switch (order.value.status) {
@@ -186,38 +168,38 @@ export default {
         default: return '等待转账'
       }
     })
-    
+
     const countdownText = computed(() => {
       if (remainingTime.value <= 0) return '已过期'
-      
+
       const minutes = Math.floor(remainingTime.value / 60)
       const seconds = remainingTime.value % 60
       return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
     })
-    
+
     // 方法
     const loadOrderDetail = async () => {
       try {
         loading.value = true
         const orderNo = route.params.orderNo
-        
+
         if (!orderNo) {
           throw new Error('订单号不能为空')
         }
-        
+
         const response = await api.wallet.getRechargeOrder(orderNo)
         order.value = response
-        
+
         // 计算剩余时间
         if (response.status === 'pending') {
           const expiresAt = new Date(response.expires_at).getTime()
           const now = Date.now()
           remainingTime.value = Math.max(0, Math.floor((expiresAt - now) / 1000))
-          
+
           // 启动倒计时
           startCountdown()
         }
-        
+
       } catch (error) {
         console.error('加载订单详情失败:', error)
         errorMessage.value = error.message || '加载订单详情失败'
@@ -225,12 +207,12 @@ export default {
         loading.value = false
       }
     }
-    
+
     const startCountdown = () => {
       if (countdownTimer.value) {
         clearInterval(countdownTimer.value)
       }
-      
+
       countdownTimer.value = setInterval(() => {
         if (remainingTime.value > 0) {
           remainingTime.value--
@@ -241,8 +223,8 @@ export default {
         }
       }, 1000)
     }
-    
-    
+
+
     const copyAmount = async () => {
       try {
         await navigator.clipboard.writeText(order.value.exact_amount)
@@ -252,7 +234,7 @@ export default {
         appStore.showError('复制失败，请手动复制')
       }
     }
-    
+
     const copyAddress = async () => {
       try {
         await navigator.clipboard.writeText(order.value.wallet_address)
@@ -262,20 +244,20 @@ export default {
         appStore.showError('复制失败，请手动复制')
       }
     }
-    
+
     const checkStatus = async () => {
       if (checking.value) return
-      
+
       try {
         checking.value = true
         const response = await api.wallet.checkRechargeStatus(order.value.order_no)
-        
+
         // 更新订单状态
         order.value.status = response.status
         order.value.tx_hash = response.tx_hash
         order.value.confirmations = response.confirmations
         order.value.confirmed_at = response.confirmed_at
-        
+
         if (response.status === 'confirmed') {
           appStore.showSuccess('充值成功！余额已更新')
           clearInterval(countdownTimer.value)
@@ -285,7 +267,7 @@ export default {
         } else {
           appStore.showInfo('暂未检测到转账，请稍后再试')
         }
-        
+
       } catch (error) {
         console.error('检查状态失败:', error)
         appStore.showError(error.message || '检查状态失败，请稍后重试')
@@ -293,7 +275,7 @@ export default {
         checking.value = false
       }
     }
-    
+
     const viewTransaction = () => {
       if (order.value.tx_hash) {
         // 打开 TRON 区块链浏览器
@@ -301,19 +283,19 @@ export default {
         window.open(url, '_blank')
       }
     }
-    
+
     const goToWallet = () => {
       router.push({ name: 'Wallet' })
     }
-    
+
     const createNewOrder = () => {
       router.push({ name: 'USDTRecharge' })
     }
-    
+
     const goBack = () => {
       router.back()
     }
-    
+
     const formatTime = (timeStr) => {
       const date = new Date(timeStr)
       return date.toLocaleString('zh-CN', {
@@ -325,23 +307,23 @@ export default {
         second: '2-digit'
       })
     }
-    
+
     const shortHash = (hash) => {
       if (!hash) return ''
       return `${hash.slice(0, 8)}...${hash.slice(-8)}`
     }
-    
+
     // 生命周期
     onMounted(() => {
       loadOrderDetail()
     })
-    
+
     onUnmounted(() => {
       if (countdownTimer.value) {
         clearInterval(countdownTimer.value)
       }
     })
-    
+
     return {
       order,
       loading,
@@ -396,8 +378,13 @@ export default {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .error-icon {
@@ -708,7 +695,7 @@ export default {
     align-items: stretch;
     gap: 8px;
   }
-  
+
   .copy-btn {
     align-self: flex-end;
   }

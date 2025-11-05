@@ -36,6 +36,11 @@
         <span v-if="loading">创建订单中...</span>
         <span v-else>创建充值订单</span>
       </button>
+      
+      <!-- 测试按钮 -->
+      <button @click="testRouteJump" class="test-btn">
+        测试路由跳转
+      </button>
     </div>
 
     <!-- 充值说明 -->
@@ -143,6 +148,22 @@ export default {
       amount.value = quickAmount.toString()
       validateAmount()
     }
+    
+    const testRouteJump = async () => {
+      console.log('测试路由跳转...')
+      const testOrderNo = 'RCH17623472201700'
+      
+      try {
+        await router.push({
+          name: 'USDTRechargeDetail',
+          params: { orderNo: testOrderNo }
+        })
+        console.log('测试跳转成功')
+      } catch (error) {
+        console.error('测试跳转失败:', error)
+        appStore.showError('测试跳转失败: ' + error.message)
+      }
+    }
 
     const createRechargeOrder = async () => {
       if (!canRecharge.value || loading.value) return
@@ -179,16 +200,30 @@ export default {
 
         // 跳转到充值详情页面
         console.log('准备跳转到订单详情页面，订单号:', response.order_no)
-
+        
+        // 构建跳转路径
+        const targetPath = `/wallet/recharge/detail/${response.order_no}`
+        console.log('目标路径:', targetPath)
+        
         try {
-          await router.push({
-            name: 'USDTRechargeDetail',
-            params: { orderNo: response.order_no }
-          })
+          // 尝试使用路径跳转
+          await router.push(targetPath)
           console.log('路由跳转成功')
         } catch (routerError) {
           console.error('路由跳转失败:', routerError)
-          appStore.showError('页面跳转失败')
+          
+          // 尝试使用路由名称跳转
+          try {
+            console.log('尝试使用路由名称跳转...')
+            await router.push({
+              name: 'USDTRechargeDetail',
+              params: { orderNo: response.order_no }
+            })
+            console.log('使用路由名称跳转成功')
+          } catch (nameRouterError) {
+            console.error('使用路由名称跳转也失败:', nameRouterError)
+            appStore.showError('页面跳转失败，请手动查看充值订单')
+          }
         }
 
       } catch (error) {
@@ -217,7 +252,8 @@ export default {
       canRecharge,
       validateAmount,
       selectQuickAmount,
-      createRechargeOrder
+      createRechargeOrder,
+      testRouteJump
     }
   }
 }
@@ -411,6 +447,25 @@ export default {
 }
 
 .recharge-btn:not(:disabled):hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.test-btn {
+  width: 100%;
+  padding: 12px;
+  background: #ff6b6b;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: all 0.2s ease;
+}
+
+.test-btn:hover {
   opacity: 0.9;
   transform: translateY(-1px);
 }
