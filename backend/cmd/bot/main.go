@@ -14,7 +14,6 @@ import (
 	botHandlers "tg-robot-sim/handlers/bot"
 	"tg-robot-sim/pkg/bot"
 	"tg-robot-sim/pkg/logger"
-	"tg-robot-sim/pkg/tron"
 	"tg-robot-sim/services"
 	"tg-robot-sim/storage/data"
 )
@@ -87,12 +86,12 @@ func main() {
 	appLogger.Info("Session service initialized")
 
 	// 初始化 TRON 客户端
-	tronClient := tron.NewClient(cfg.Blockchain.TronEndpoint, cfg.Blockchain.TronAPIKey, appLogger)
-	appLogger.Info("TRON client initialized")
+	// tronClient := tron.NewClient(cfg.Blockchain.TronEndpoint, cfg.Blockchain.TronAPIKey, appLogger)
+	// appLogger.Info("TRON client initialized")
 
 	// 初始化区块链服务
-	blockchainService := services.NewBlockchainService(tronClient, &cfg.Blockchain, appLogger)
-	appLogger.Info("Blockchain service initialized")
+	// blockchainService := services.NewBlockchainService(tronClient, &cfg.Blockchain, appLogger)
+	// appLogger.Info("Blockchain service initialized")
 
 	// 初始化菜单服务
 	menuService := services.NewMenuService(sessionService, appLogger)
@@ -243,15 +242,6 @@ func main() {
 	// 等待关闭信号
 	<-ctx.Done()
 	appLogger.Info("Context cancelled, shutting down...")
-
-	// 优雅关闭
-	if cfg.Blockchain.WalletAddress != "" {
-		if err := blockchainService.StopMonitoring(); err != nil {
-			appLogger.Error("Failed to stop blockchain monitoring: %v", err)
-		} else {
-			appLogger.Info("Blockchain monitoring stopped")
-		}
-	}
 
 	telegramBot.Stop()
 	appLogger.Info("Bot shutdown complete")

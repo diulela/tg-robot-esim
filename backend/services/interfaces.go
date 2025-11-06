@@ -93,11 +93,6 @@ type MenuService interface {
 // BlockchainService 定义区块链服务接口
 // 负责监控和验证区块链交易
 type BlockchainService interface {
-	// StartMonitoring 开始监控区块链交易
-	StartMonitoring(ctx context.Context) error
-
-	// StopMonitoring 停止监控
-	StopMonitoring() error
 
 	// ValidateTransaction 验证交易
 	ValidateTransaction(txHash string) (*TransactionInfo, error)

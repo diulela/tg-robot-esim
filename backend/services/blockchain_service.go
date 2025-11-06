@@ -40,41 +40,6 @@ func NewBlockchainService(
 	}
 }
 
-// StartMonitoring 开始监控区块链交易
-func (b *blockchainService) StartMonitoring(ctx context.Context) error {
-	b.monitorMutex.Lock()
-	defer b.monitorMutex.Unlock()
-
-	if b.isMonitoring {
-		return fmt.Errorf("monitoring is already running")
-	}
-
-	b.isMonitoring = true
-	b.logger.Info("Starting blockchain monitoring with interval: %v", b.config.MonitorInterval.ToDuration())
-
-	// 启动监控协程
-	go b.monitorLoop(ctx)
-
-	return nil
-}
-
-// StopMonitoring 停止监控
-func (b *blockchainService) StopMonitoring() error {
-	b.monitorMutex.Lock()
-	defer b.monitorMutex.Unlock()
-
-	if !b.isMonitoring {
-		return fmt.Errorf("monitoring is not running")
-	}
-
-	b.logger.Info("Stopping blockchain monitoring...")
-	close(b.stopChan)
-	b.isMonitoring = false
-	b.stopChan = make(chan struct{}) // 重新创建通道以便下次使用
-
-	return nil
-}
-
 // ValidateTransaction 验证交易
 func (b *blockchainService) ValidateTransaction(txHash string) (*TransactionInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -180,33 +145,6 @@ func (b *blockchainService) IsTransactionConfirmed(txHash string, requiredConfir
 	return txInfo.Confirmations >= requiredConfirmations, nil
 }
 
-// monitorLoop 监控循环
-func (b *blockchainService) monitorLoop(ctx context.Context) {
-	ticker := time.NewTicker(b.config.MonitorInterval.ToDuration())
-	defer ticker.Stop()
-
-	b.logger.Info("Blockchain monitoring loop started")
-
-	for {
-		select {
-		case <-ctx.Done():
-			b.logger.Info("Context cancelled, stopping monitoring loop")
-			return
-		case <-b.stopChan:
-			b.logger.Info("Stop signal received, stopping monitoring loop")
-			return
-		case <-ticker.C:
-			if err := b.checkPendingTransactions(); err != nil {
-				b.logger.Error("Failed to check pending transactions: %v", err)
-			}
-
-			if err := b.scanWatchedAddresses(); err != nil {
-				b.logger.Error("Failed to scan watched addresses: %v", err)
-			}
-		}
-	}
-}
-
 // checkPendingTransactions 检查待确认的交易
 func (b *blockchainService) checkPendingTransactions() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -252,73 +190,6 @@ func (b *blockchainService) updateTransactionStatus(ctx context.Context, tx *mod
 
 	b.logger.Info("Updated transaction %s: status=%s, confirmations=%d",
 		tx.TxHash, newStatus, tronTx.Confirmations)
-
-	return nil
-}
-
-// scanWatchedAddresses 扫描监控的地址
-func (b *blockchainService) scanWatchedAddresses() error {
-	b.addrMutex.RLock()
-	addresses := make([]string, 0, len(b.watchedAddrs))
-	for addr := range b.watchedAddrs {
-		addresses = append(addresses, addr)
-	}
-	b.addrMutex.RUnlock()
-
-	if len(addresses) == 0 {
-		return nil
-	}
-
-	b.logger.Debug("Scanning %d watched addresses", len(addresses))
-
-	for _, address := range addresses {
-		if err := b.scanAddressTransactions(address); err != nil {
-			b.logger.Error("Failed to scan address %s: %v", address, err)
-			continue
-		}
-	}
-
-	return nil
-}
-
-// scanAddressTransactions 扫描地址的交易
-func (b *blockchainService) scanAddressTransactions(address string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	// 获取地址的最新交易
-	tronTxs, err := b.tronClient.GetAddressTransactions(ctx, address, 10)
-	if err != nil {
-		return fmt.Errorf("failed to get address transactions: %w", err)
-	}
-
-	for _, tronTx := range tronTxs {
-		// 检查交易是否已存在于数据库中
-		_, err := b.txRepo.GetByTxHash(ctx, tronTx.TxID)
-		if err == nil {
-			continue // 交易已存在
-		}
-
-		// 创建新的交易记录
-		tx := &models.Transaction{
-			TxHash:        tronTx.TxID,
-			FromAddress:   tronTx.From,
-			ToAddress:     tronTx.To,
-			Amount:        tronTx.Amount,
-			TokenSymbol:   "USDT", // 假设是 USDT
-			Status:        models.TransactionStatus(b.mapTronStatus(tronTx.Status)),
-			Confirmations: tronTx.Confirmations,
-			BlockNumber:   tronTx.BlockNumber,
-			Timestamp:     time.Unix(tronTx.Timestamp/1000, 0),
-		}
-
-		if err := b.txRepo.Create(ctx, tx); err != nil {
-			b.logger.Error("Failed to create transaction record: %v", err)
-			continue
-		}
-
-		b.logger.Info("New transaction detected: %s", tronTx.TxID)
-	}
 
 	return nil
 }
