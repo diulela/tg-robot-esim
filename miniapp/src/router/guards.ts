@@ -262,53 +262,6 @@ function updateTelegramButtons(to: RouteLocationNormalized) {
   }
 }
 
-// 数据预加载函数
-async function preloadOrderData(to: RouteLocationNormalized) {
-  const { useOrdersStore } = await import('@/stores/orders')
-  const ordersStore = useOrdersStore()
-  
-  if (to.name === 'OrderDetail' && to.params.id) {
-    // 预加载订单详情
-    await ordersStore.fetchOrderById(to.params.id as string)
-  } else if (to.name === 'Orders' && !ordersStore.hasOrders) {
-    // 预加载订单列表
-    await ordersStore.fetchOrders()
-  }
-}
-
-async function preloadProductData(to: RouteLocationNormalized) {
-  const { useProductsStore } = await import('@/stores/products')
-  const productsStore = useProductsStore()
-  
-  if (to.name === 'ProductDetail' && to.params.id) {
-    // 预加载产品详情
-    await productsStore.fetchProductById(to.params.id as string)
-  }
-  // 移除 Products 页面的预加载，因为它现在是一个容器组件
-  // 各个栏目会在需要时自行加载数据
-}
-
-async function preloadRegionData(to: RouteLocationNormalized) {
-  const { useProductsStore } = await import('@/stores/products')
-  const productsStore = useProductsStore()
-  
-  // 预加载区域数据
-  await productsStore.fetchRegions()
-  
-  if (to.name === 'Countries' && to.params.region) {
-    // 预加载指定区域的国家数据
-    await productsStore.fetchCountries(to.params.region as string)
-  } else if (to.name === 'Countries') {
-    // 预加载所有国家数据
-    await productsStore.fetchCountries()
-  }
-}
-
-async function preloadWalletData(to: RouteLocationNormalized) {
-  // 钱包数据预加载逻辑
-  // 这里可以添加钱包相关的数据预加载
-  console.log('[Router] 预加载钱包数据')
-}
 
 // 导航辅助函数
 export function createNavigationHelper(router: Router) {
