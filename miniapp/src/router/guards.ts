@@ -23,10 +23,6 @@ export function setupRouterGuards(router: Router) {
   router.afterEach((to, from) => {
     console.log(`[Router] 导航完成: ${from.name} -> ${to.name}`)
     
-    // 记录页面加载时间
-    const appStore = useAppStore()
-    appStore.recordPageLoadTime()
-    
     // 更新页面状态
     updatePageState(to)
     
