@@ -32,22 +32,41 @@ type WalletService interface {
 	CreateRechargeOrder(ctx context.Context, userID int64, amount string) (*models.RechargeOrder, error)
 	ProcessPayment(ctx context.Context, userID int64, productID int, amount string) (*PaymentResult, error)
 	ProcessRecharge(ctx context.Context, txHash string, amount string) error
-	FreezeBalance(ctx context.Context, userID int64, amount string) error
-	UnfreezeBalance(ctx context.Context, userID int64, amount string) error
 	DeductBalance(ctx context.Context, userID int64, amount string) error
-	AddBalance(ctx context.Context, userID int64, amount string) error
 
 	// 新增方法用于充值功能
 	GetWallet(ctx context.Context, userID int64) (*models.Wallet, error)
 	GetOrCreateWallet(ctx context.Context, userID int64) (*models.Wallet, error)
 	AddBalanceWithRemark(ctx context.Context, userID int64, amount string, remark string) error
+
+	// eSIM 订单处理相关方法
+	// FreezeBalance 冻结余额（不记录 wallet_history，仅内部状态变更）
+	FreezeBalance(ctx context.Context, userID int64, amount string, relatedID string, description string) error
+
+	// UnfreezeBalance 解冻余额（退还到可用余额）
+	// 会创建 wallet_history 记录：type=refund, status=completed
+	UnfreezeBalance(ctx context.Context, userID int64, amount string, relatedID string, description string) error
+
+	// ConfirmFrozenPayment 确认冻结金额的支付（从冻结余额扣除）
+	// 会创建 wallet_history 记录：type=payment, status=completed
+	ConfirmFrozenPayment(ctx context.Context, userID int64, amount string, relatedID string, description string) error
+
+	// AddBalance 增加余额（充值等）
+	AddBalance(ctx context.Context, userID int64, amount string, relatedID string, description string) error
+
+	// HasSufficientBalance 检查是否有足够的可用余额
+	HasSufficientBalance(ctx context.Context, userID int64, amount string) (bool, error)
+
+	// GetFrozenBalance 获取冻结余额
+	GetFrozenBalance(ctx context.Context, userID int64) (string, error)
 }
 
 // walletService 钱包服务实现
 type walletService struct {
-	walletRepo        repository.WalletRepository
-	rechargeOrderRepo repository.RechargeOrderRepository
-	blockchainService BlockchainService
+	walletRepo           repository.WalletRepository
+	rechargeOrderRepo    repository.RechargeOrderRepository
+	blockchainService    BlockchainService
+	walletHistoryService WalletHistoryService
 }
 
 // NewWalletService 创建钱包服务实例
@@ -55,11 +74,13 @@ func NewWalletService(
 	walletRepo repository.WalletRepository,
 	rechargeOrderRepo repository.RechargeOrderRepository,
 	blockchainService BlockchainService,
+	walletHistoryService WalletHistoryService,
 ) WalletService {
 	return &walletService{
-		walletRepo:        walletRepo,
-		rechargeOrderRepo: rechargeOrderRepo,
-		blockchainService: blockchainService,
+		walletRepo:           walletRepo,
+		rechargeOrderRepo:    rechargeOrderRepo,
+		blockchainService:    blockchainService,
+		walletHistoryService: walletHistoryService,
 	}
 }
 
@@ -194,52 +215,79 @@ func (s *walletService) ProcessRecharge(ctx context.Context, txHash string, amou
 	return nil
 }
 
-// FreezeBalance 冻结余额
-func (s *walletService) FreezeBalance(ctx context.Context, userID int64, amount string) error {
-	wallet, err := s.walletRepo.GetOrCreate(ctx, userID)
+// FreezeBalance 冻结余额（不记录 wallet_history，仅内部状态变更）
+func (s *walletService) FreezeBalance(ctx context.Context, userID int64, amount string, relatedID string, description string) error {
+	// 验证金额格式
+	freezeAmount, err := parseDecimal(amount)
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid amount format: %w", err)
 	}
 
-	balance, _ := parseDecimal(wallet.Balance)
-	freezeAmount, _ := parseDecimal(amount)
-
-	if balance.Cmp(freezeAmount) < 0 {
-		return errors.New("insufficient balance")
+	if freezeAmount.Cmp(big.NewFloat(0)) <= 0 {
+		return errors.New("amount must be positive")
 	}
 
-	newBalance := new(big.Float).Sub(balance, freezeAmount)
-	frozenBalance, _ := parseDecimal(wallet.FrozenBalance)
-	newFrozenBalance := new(big.Float).Add(frozenBalance, freezeAmount)
+	// 使用原子操作：减少可用余额，增加冻结余额
+	negativeAmount := new(big.Float).Neg(freezeAmount)
+	balanceDelta := negativeAmount.Text('f', 8) // 减少可用余额
+	frozenDelta := amount                       // 增加冻结余额
 
-	wallet.Balance = newBalance.Text('f', 8)
-	wallet.FrozenBalance = newFrozenBalance.Text('f', 8)
-
-	return s.walletRepo.Update(ctx, wallet)
+	return s.walletRepo.UpdateBalanceAtomic(ctx, userID, balanceDelta, frozenDelta)
 }
 
-// UnfreezeBalance 解冻余额
-func (s *walletService) UnfreezeBalance(ctx context.Context, userID int64, amount string) error {
-	wallet, err := s.walletRepo.GetOrCreate(ctx, userID)
+// UnfreezeBalance 解冻余额（退还到可用余额）
+// 会创建 wallet_history 记录：type=refund, status=completed
+func (s *walletService) UnfreezeBalance(ctx context.Context, userID int64, amount string, relatedID string, description string) error {
+	// 验证金额格式
+	unfreezeAmount, err := parseDecimal(amount)
+	if err != nil {
+		return fmt.Errorf("invalid amount format: %w", err)
+	}
+
+	if unfreezeAmount.Cmp(big.NewFloat(0)) <= 0 {
+		return errors.New("amount must be positive")
+	}
+
+	// 使用原子操作：增加可用余额，减少冻结余额
+	negativeAmount := new(big.Float).Neg(unfreezeAmount)
+	balanceDelta := amount                     // 增加可用余额
+	frozenDelta := negativeAmount.Text('f', 8) // 减少冻结余额
+
+	// 获取操作前的余额信息
+	walletBefore, err := s.walletRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to get wallet before unfreeze: %w", err)
+	}
+
+	err = s.walletRepo.UpdateBalanceAtomic(ctx, userID, balanceDelta, frozenDelta)
 	if err != nil {
 		return err
 	}
 
-	frozenBalance, _ := parseDecimal(wallet.FrozenBalance)
-	unfreezeAmount, _ := parseDecimal(amount)
-
-	if frozenBalance.Cmp(unfreezeAmount) < 0 {
-		return errors.New("insufficient frozen balance")
+	// 获取操作后的余额信息
+	walletAfter, err := s.walletRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to get wallet after unfreeze: %w", err)
 	}
 
-	balance, _ := parseDecimal(wallet.Balance)
-	newBalance := new(big.Float).Add(balance, unfreezeAmount)
-	newFrozenBalance := new(big.Float).Sub(frozenBalance, unfreezeAmount)
+	// 记录 wallet_history（type=refund）
+	if s.walletHistoryService != nil {
+		err = s.walletHistoryService.CreateRefundRecord(
+			ctx,
+			userID,
+			amount,
+			walletBefore.Balance,
+			walletAfter.Balance,
+			relatedID,
+			description,
+		)
+		if err != nil {
+			// 记录历史失败不应该影响主要操作，只记录日志
+			fmt.Printf("Warning: failed to create refund history record: %v\n", err)
+		}
+	}
 
-	wallet.Balance = newBalance.Text('f', 8)
-	wallet.FrozenBalance = newFrozenBalance.Text('f', 8)
-
-	return s.walletRepo.Update(ctx, wallet)
+	return nil
 }
 
 // DeductBalance 扣除余额
@@ -262,8 +310,8 @@ func (s *walletService) DeductBalance(ctx context.Context, userID int64, amount 
 	return s.walletRepo.Update(ctx, wallet)
 }
 
-// AddBalance 增加余额
-func (s *walletService) AddBalance(ctx context.Context, userID int64, amount string) error {
+// AddBalance 增加余额（新签名，支持 relatedID 和 description）
+func (s *walletService) AddBalance(ctx context.Context, userID int64, amount string, relatedID string, description string) error {
 	wallet, err := s.walletRepo.GetOrCreate(ctx, userID)
 	if err != nil {
 		return err
@@ -274,6 +322,9 @@ func (s *walletService) AddBalance(ctx context.Context, userID int64, amount str
 	newBalance := new(big.Float).Add(balance, addAmount)
 
 	wallet.Balance = newBalance.Text('f', 8)
+
+	// TODO: 记录钱包历史（使用 relatedID 和 description）
+	// 这里可以调用 WalletHistoryService 来记录历史
 
 	return s.walletRepo.Update(ctx, wallet)
 }
@@ -363,6 +414,90 @@ func (s *walletService) addBalanceWithRemarkOnce(ctx context.Context, userID int
 	// 这里可以添加交易记录的逻辑
 
 	return nil
+}
+
+// ConfirmFrozenPayment 确认冻结金额的支付（从冻结余额扣除）
+// 会创建 wallet_history 记录：type=payment, status=completed
+func (s *walletService) ConfirmFrozenPayment(ctx context.Context, userID int64, amount string, relatedID string, description string) error {
+	// 验证金额格式
+	payAmount, err := parseDecimal(amount)
+	if err != nil {
+		return fmt.Errorf("invalid amount format: %w", err)
+	}
+
+	if payAmount.Cmp(big.NewFloat(0)) <= 0 {
+		return errors.New("amount must be positive")
+	}
+
+	// 使用原子操作：减少冻结余额
+	negativeAmount := new(big.Float).Neg(payAmount)
+	balanceDelta := "0"                        // 可用余额不变
+	frozenDelta := negativeAmount.Text('f', 8) // 减少冻结余额
+
+	err = s.walletRepo.UpdateBalanceAtomic(ctx, userID, balanceDelta, frozenDelta)
+	if err != nil {
+		return err
+	}
+
+	// 更新总支出（需要单独处理，因为 UpdateBalanceAtomic 不处理统计字段）
+	wallet, err := s.walletRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to get wallet for expense update: %w", err)
+	}
+
+	totalExpense, _ := parseDecimal(wallet.TotalExpense)
+	newTotalExpense := new(big.Float).Add(totalExpense, payAmount)
+	wallet.TotalExpense = newTotalExpense.Text('f', 8)
+
+	// 获取操作前的余额信息（用于历史记录）
+	balanceBefore := wallet.Balance // 可用余额在这个操作中没有变化
+
+	err = s.walletRepo.Update(ctx, wallet)
+	if err != nil {
+		return fmt.Errorf("failed to update total expense: %w", err)
+	}
+
+	// 记录 wallet_history（type=payment）
+	if s.walletHistoryService != nil {
+		err = s.walletHistoryService.CreatePaymentRecord(
+			ctx,
+			userID,
+			amount,
+			balanceBefore,
+			wallet.Balance, // 可用余额没有变化，但记录当前值
+			relatedID,
+			description,
+		)
+		if err != nil {
+			// 记录历史失败不应该影响主要操作，只记录日志
+			fmt.Printf("Warning: failed to create payment history record: %v\n", err)
+		}
+	}
+
+	return nil
+}
+
+// HasSufficientBalance 检查是否有足够的可用余额
+func (s *walletService) HasSufficientBalance(ctx context.Context, userID int64, amount string) (bool, error) {
+	wallet, err := s.walletRepo.GetOrCreate(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	balance, _ := parseDecimal(wallet.Balance)
+	requiredAmount, _ := parseDecimal(amount)
+
+	return balance.Cmp(requiredAmount) >= 0, nil
+}
+
+// GetFrozenBalance 获取冻结余额
+func (s *walletService) GetFrozenBalance(ctx context.Context, userID int64) (string, error) {
+	wallet, err := s.walletRepo.GetOrCreate(ctx, userID)
+	if err != nil {
+		return "0", err
+	}
+
+	return wallet.FrozenBalance, nil
 }
 
 // parseDecimal 解析 decimal 字符串为 big.Float

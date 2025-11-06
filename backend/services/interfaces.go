@@ -211,4 +211,83 @@ type WalletHistoryService interface {
 
 	// UpdateRecordStatus 更新记录状态
 	UpdateRecordStatus(ctx context.Context, recordID uint, status models.WalletHistoryStatus) error
+
+	// CreateRefundRecord 创建退款记录（用于订单失败时的退款）
+	CreateRefundRecord(ctx context.Context, userID int64, amount, balanceBefore, balanceAfter string, relatedID, description string) error
+}
+
+// CreateEsimOrderRequest 创建 eSIM 订单请求
+type CreateEsimOrderRequest struct {
+	UserID      int64  `json:"user_id" validate:"required"`
+	ProductID   int    `json:"product_id" validate:"required"`
+	Quantity    int    `json:"quantity" validate:"required,min=1"`
+	TotalAmount string `json:"total_amount" validate:"required"`
+	Remark      string `json:"remark,omitempty"`
+}
+
+// EsimOrderResponse eSIM 订单响应
+type EsimOrderResponse struct {
+	OrderID     uint               `json:"order_id"`
+	OrderNo     string             `json:"order_no"`
+	Status      models.OrderStatus `json:"status"`
+	TotalAmount string             `json:"total_amount"`
+	CreatedAt   time.Time          `json:"created_at"`
+}
+
+// OrderWithDetail 包含详情的订单信息
+type OrderWithDetail struct {
+	OrderID         uint               `json:"order_id"`
+	OrderNo         string             `json:"order_no"`
+	UserID          int64              `json:"user_id"`
+	ProductID       int                `json:"product_id"`
+	ProductName     string             `json:"product_name"`
+	Quantity        int                `json:"quantity"`
+	UnitPrice       string             `json:"unit_price"`
+	TotalAmount     string             `json:"total_amount"`
+	Status          models.OrderStatus `json:"status"`
+	ProviderOrderID string             `json:"provider_order_id,omitempty"`
+	OrderItems      []OrderItemDetail  `json:"order_items,omitempty"`
+	Esims           []EsimDetail       `json:"esims,omitempty"`
+	CreatedAt       time.Time          `json:"created_at"`
+	UpdatedAt       time.Time          `json:"updated_at"`
+	CompletedAt     *time.Time         `json:"completed_at,omitempty"`
+}
+
+// OrderItemDetail 订单项详情
+type OrderItemDetail struct {
+	ID          int     `json:"id"`
+	ProductID   int     `json:"product_id"`
+	ProductName string  `json:"product_name"`
+	Quantity    int     `json:"quantity"`
+	UnitPrice   float64 `json:"unit_price"`
+	Subtotal    float64 `json:"subtotal"`
+	DataSize    int     `json:"data_size"`
+	ValidDays   int     `json:"valid_days"`
+}
+
+// EsimDetail eSIM 详情
+type EsimDetail struct {
+	ID                int    `json:"id"`
+	ICCID             string `json:"iccid"`
+	Status            string `json:"status"`
+	HasActivationCode bool   `json:"has_activation_code"`
+	HasQrCode         bool   `json:"has_qr_code"`
+}
+
+// ProviderOrderData 第三方订单数据
+type ProviderOrderData struct {
+	OrderID     int               `json:"order_id"`
+	OrderNumber string            `json:"order_number"`
+	Status      string            `json:"status"`
+	OrderItems  []OrderItemDetail `json:"order_items"`
+	Esims       []EsimDetail      `json:"esims"`
+}
+
+// OrderFilters 订单筛选条件
+type OrderFilters struct {
+	Status    models.OrderStatus `json:"status,omitempty"`
+	StartDate string             `json:"start_date,omitempty"`
+	EndDate   string             `json:"end_date,omitempty"`
+	Limit     int                `json:"limit"`
+	Offset    int                `json:"offset"`
 }

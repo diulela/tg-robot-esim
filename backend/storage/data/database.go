@@ -28,6 +28,7 @@ type Database struct {
 	productDetailRepo repository.ProductDetailRepository
 	walletRepo        repository.WalletRepository
 	orderRepo         repository.OrderRepository
+	orderDetailRepo   repository.OrderDetailRepository
 	rechargeOrderRepo repository.RechargeOrderRepository
 	walletHistoryRepo repository.WalletHistoryRepository
 }
@@ -98,6 +99,7 @@ func NewDatabase(cfg *config.DatabaseConfig) (*Database, error) {
 	database.productDetailRepo = repository.NewProductDetailRepository(db)
 	database.walletRepo = repository.NewWalletRepository(db)
 	database.orderRepo = repository.NewOrderRepository(db)
+	database.orderDetailRepo = repository.NewOrderDetailRepository(db)
 	database.rechargeOrderRepo = repository.NewRechargeOrderRepository(db)
 	database.walletHistoryRepo = repository.NewWalletHistoryRepository(db)
 
@@ -118,6 +120,7 @@ func (d *Database) AutoMigrate() error {
 		&models.ProductDetail{},
 		&models.Wallet{},
 		&models.Order{},
+		&models.OrderDetail{},
 		&models.RechargeOrder{},
 		&models.WalletHistory{},
 	)
@@ -167,6 +170,10 @@ func (d *Database) GetWalletRepository() repository.WalletRepository {
 
 func (d *Database) GetOrderRepository() repository.OrderRepository {
 	return d.orderRepo
+}
+
+func (d *Database) GetOrderDetailRepository() repository.OrderDetailRepository {
+	return d.orderDetailRepo
 }
 
 func (d *Database) GetRechargeOrderRepository() repository.RechargeOrderRepository {

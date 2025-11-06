@@ -11,11 +11,13 @@ import (
 type OrderStatus string
 
 const (
-	OrderStatusPending   OrderStatus = "pending"   // 待支付
-	OrderStatusPaid      OrderStatus = "paid"      // 已支付
-	OrderStatusCompleted OrderStatus = "completed" // 已完成
-	OrderStatusCancelled OrderStatus = "cancelled" // 已取消
-	OrderStatusRefunded  OrderStatus = "refunded"  // 已退款
+	OrderStatusPending    OrderStatus = "pending"    // 待支付
+	OrderStatusPaid       OrderStatus = "paid"       // 已支付
+	OrderStatusProcessing OrderStatus = "processing" // 处理中（包含创建、支付、第三方处理等所有中间状态，余额已冻结）
+	OrderStatusCompleted  OrderStatus = "completed"  // 已完成（冻结金额已扣除，eSIM 信息已获取）
+	OrderStatusCancelled  OrderStatus = "cancelled"  // 已取消
+	OrderStatusRefunded   OrderStatus = "refunded"   // 已退款
+	OrderStatusFailed     OrderStatus = "failed"     // 失败（冻结金额已退还）
 )
 
 // Order 订单模型
@@ -33,11 +35,21 @@ type Order struct {
 	CompletedAt *time.Time     `json:"completed_at,omitempty"`                        // 完成时间
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"deleted_at"`
+
+	// eSIM 订单处理新增字段
+	Quantity        int        `gorm:"default:1" json:"quantity"`               // 购买数量
+	UnitPrice       string     `gorm:"type:decimal(10,4)" json:"unit_price"`    // 单价
+	ProviderOrderID string     `gorm:"size:100;index" json:"provider_order_id"` // 第三方订单ID
+	ProviderOrderNo string     `gorm:"size:100;index" json:"provider_order_no"` // 第三方订单号
+	SyncAttempts    int        `gorm:"default:0" json:"sync_attempts"`          // 同步尝试次数
+	LastSyncAt      *time.Time `gorm:"index" json:"last_sync_at"`               // 最后同步时间
+	NextSyncAt      *time.Time `gorm:"index" json:"next_sync_at"`               // 下次同步时间
 
 	// 关联
-	User    User    `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	Product Product `gorm:"foreignKey:ProductID" json:"product,omitempty"`
+	User        User         `gorm:"foreignKey:UserID" json:"user"`
+	Product     Product      `gorm:"foreignKey:ProductID" json:"product"`
+	OrderDetail *OrderDetail `gorm:"foreignKey:OrderID" json:"order_detail"`
 }
 
 // TableName 指定表名

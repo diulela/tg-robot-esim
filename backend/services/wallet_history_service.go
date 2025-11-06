@@ -203,3 +203,24 @@ func (s *walletHistoryService) parseDateRange(startDateStr, endDateStr string) (
 
 	return startDate, endDate
 }
+
+// CreateRefundRecord 创建退款记录（用于订单失败时的退款）
+func (s *walletHistoryService) CreateRefundRecord(ctx context.Context, userID int64, amount, balanceBefore, balanceAfter string, relatedID, description string) error {
+	history := &models.WalletHistory{
+		UserID:        userID,
+		Type:          models.WalletHistoryTypeRefund,
+		Amount:        amount, // 退款为正数
+		BalanceBefore: balanceBefore,
+		BalanceAfter:  balanceAfter,
+		Status:        models.WalletHistoryStatusCompleted,
+		Description:   description,
+		RelatedType:   "order",
+		RelatedID:     relatedID,
+	}
+
+	if err := s.walletHistoryRepo.Create(ctx, history); err != nil {
+		return fmt.Errorf("创建退款记录失败: %w", err)
+	}
+
+	return nil
+}

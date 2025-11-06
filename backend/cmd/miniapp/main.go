@@ -59,19 +59,30 @@ func main() {
 		log.Printf("Warning: Failed to migrate wallets: %v", err)
 	}
 
-	// 创建服务
-	// 注意：这里需要实现 BlockchainService，暂时传 nil
-	walletService := services.NewWalletService(db.GetWalletRepository(), db.GetRechargeOrderRepository(), nil)
-	productService := services.NewProductService(db.GetProductRepository())
-	orderService := services.NewOrderService(db.GetOrderRepository(), db.GetProductRepository(), walletService)
-	walletHistoryService := services.NewWalletHistoryService(db.GetWalletHistoryRepository())
-
 	// 创建模拟服务用于测试
 	// 初始化 TRON 客户端
 	tronClient := tron.NewClient(cfg.Blockchain.TronEndpoint, cfg.Blockchain.TronAPIKey, appLogger)
 
 	// 初始化区块链服务
 	blockchainService := services.NewBlockchainService(tronClient, &cfg.Blockchain, appLogger)
+
+	walletHistoryService := services.NewWalletHistoryService(db.GetWalletHistoryRepository())
+
+	// 创建服务
+	// 注意：这里需要实现 BlockchainService，暂时传 nil
+	walletService := services.NewWalletService(
+		db.GetWalletRepository(),
+		db.GetRechargeOrderRepository(),
+		blockchainService,
+		walletHistoryService,
+	)
+	productService := services.NewProductService(db.GetProductRepository())
+	orderService := services.NewOrderService(
+		db.GetOrderRepository(),
+		db.GetOrderDetailRepository(),
+		db.GetProductRepository(),
+		walletService,
+	)
 
 	// 初始化 Telegram Bot
 	telegramBot, err := bot.NewBot(&cfg.Telegram, appLogger)

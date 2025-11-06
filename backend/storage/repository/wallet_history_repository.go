@@ -184,7 +184,6 @@ func (r *walletHistoryRepository) GetStatsByUserID(ctx context.Context, userID i
 			userID,
 			models.WalletHistoryTypeRecharge,
 			models.WalletHistoryTypeRefund,
-			models.WalletHistoryTypeUnfreeze,
 			models.WalletHistoryStatusCompleted).
 		Scan(&totalIncome).Error
 	if err == nil {
@@ -198,7 +197,6 @@ func (r *walletHistoryRepository) GetStatsByUserID(ctx context.Context, userID i
 		Where("user_id = ? AND type IN (?, ?) AND status = ?",
 			userID,
 			models.WalletHistoryTypePayment,
-			models.WalletHistoryTypeFreeze,
 			models.WalletHistoryStatusCompleted).
 		Scan(&totalExpense).Error
 	if err == nil {

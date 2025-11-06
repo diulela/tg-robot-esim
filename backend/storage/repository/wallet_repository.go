@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"math/big"
 
 	"tg-robot-sim/storage/models"
 
@@ -17,6 +18,10 @@ type WalletRepository interface {
 	Update(ctx context.Context, wallet *models.Wallet) error
 	UpdateBalance(ctx context.Context, userID int64, balance, frozenBalance string) error
 	Delete(ctx context.Context, id uint) error
+
+	// 新增方法用于原子操作
+	// UpdateBalanceAtomic 原子性更新余额（带乐观锁）
+	UpdateBalanceAtomic(ctx context.Context, userID int64, balanceDelta, frozenDelta string) error
 }
 
 // walletRepository 钱包仓储实现
@@ -89,4 +94,68 @@ func (r *walletRepository) GetOrCreate(ctx context.Context, userID int64) (*mode
 	}
 
 	return wallet, nil
+}
+
+// UpdateBalanceAtomic 原子性更新余额（带乐观锁）
+func (r *walletRepository) UpdateBalanceAtomic(ctx context.Context, userID int64, balanceDelta, frozenDelta string) error {
+	// 使用数据库级别的原子操作来更新余额
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 先锁定记录
+		var wallet models.Wallet
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").
+			Where("user_id = ?", userID).
+			First(&wallet).Error; err != nil {
+			return fmt.Errorf("failed to lock wallet: %w", err)
+		}
+
+		// 解析当前余额
+		balance, err := parseDecimal(wallet.Balance)
+		if err != nil {
+			return fmt.Errorf("invalid balance format: %w", err)
+		}
+
+		frozenBalance, err := parseDecimal(wallet.FrozenBalance)
+		if err != nil {
+			return fmt.Errorf("invalid frozen balance format: %w", err)
+		}
+
+		// 解析变化量
+		balanceChange, err := parseDecimal(balanceDelta)
+		if err != nil {
+			return fmt.Errorf("invalid balance delta format: %w", err)
+		}
+
+		frozenChange, err := parseDecimal(frozenDelta)
+		if err != nil {
+			return fmt.Errorf("invalid frozen delta format: %w", err)
+		}
+
+		// 计算新余额
+		newBalance := new(big.Float).Add(balance, balanceChange)
+		newFrozenBalance := new(big.Float).Add(frozenBalance, frozenChange)
+
+		// 检查余额不能为负
+		if newBalance.Cmp(big.NewFloat(0)) < 0 {
+			return fmt.Errorf("insufficient balance")
+		}
+
+		if newFrozenBalance.Cmp(big.NewFloat(0)) < 0 {
+			return fmt.Errorf("insufficient frozen balance")
+		}
+
+		// 更新余额
+		wallet.Balance = newBalance.Text('f', 8)
+		wallet.FrozenBalance = newFrozenBalance.Text('f', 8)
+
+		return tx.Save(&wallet).Error
+	})
+}
+
+// parseDecimal 解析 decimal 字符串为 big.Float
+func parseDecimal(s string) (*big.Float, error) {
+	f, _, err := big.ParseFloat(s, 10, 256, big.ToNearestEven)
+	if err != nil {
+		return big.NewFloat(0), err
+	}
+	return f, nil
 }

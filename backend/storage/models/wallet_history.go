@@ -11,10 +11,8 @@ type WalletHistoryType string
 
 const (
 	WalletHistoryTypeRecharge WalletHistoryType = "recharge" // 充值
-	WalletHistoryTypePayment  WalletHistoryType = "payment"  // 支付
-	WalletHistoryTypeRefund   WalletHistoryType = "refund"   // 退款
-	WalletHistoryTypeFreeze   WalletHistoryType = "freeze"   // 冻结
-	WalletHistoryTypeUnfreeze WalletHistoryType = "unfreeze" // 解冻
+	WalletHistoryTypePayment  WalletHistoryType = "payment"  // 支付（包含冻结金额的最终扣费）
+	WalletHistoryTypeRefund   WalletHistoryType = "refund"   // 退款（包含冻结金额的退还）
 )
 
 // WalletHistoryStatus 钱包历史记录状态
@@ -70,12 +68,12 @@ func (w *WalletHistory) BeforeUpdate(tx *gorm.DB) error {
 
 // IsIncome 检查是否为收入记录
 func (w *WalletHistory) IsIncome() bool {
-	return w.Type == WalletHistoryTypeRecharge || w.Type == WalletHistoryTypeRefund || w.Type == WalletHistoryTypeUnfreeze
+	return w.Type == WalletHistoryTypeRecharge || w.Type == WalletHistoryTypeRefund
 }
 
 // IsExpense 检查是否为支出记录
 func (w *WalletHistory) IsExpense() bool {
-	return w.Type == WalletHistoryTypePayment || w.Type == WalletHistoryTypeFreeze
+	return w.Type == WalletHistoryTypePayment
 }
 
 // IsCompleted 检查记录是否已完成

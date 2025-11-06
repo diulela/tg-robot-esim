@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"tg-robot-sim/storage/models"
 
@@ -18,6 +19,22 @@ type OrderRepository interface {
 	UpdateStatus(ctx context.Context, id uint, status models.OrderStatus) error
 	Delete(ctx context.Context, id uint) error
 	CountByUserID(ctx context.Context, userID int64) (int64, error)
+
+	// eSIM 订单处理相关方法
+	// GetByIDWithDetail 根据ID获取订单（包含详情）
+	GetByIDWithDetail(ctx context.Context, id uint) (*models.Order, error)
+
+	// GetPendingSyncOrders 获取需要同步的待处理订单
+	GetPendingSyncOrders(ctx context.Context, limit int) ([]*models.Order, error)
+
+	// UpdateSyncInfo 更新订单同步信息
+	UpdateSyncInfo(ctx context.Context, id uint, syncAttempts int, nextSyncAt *time.Time) error
+
+	// GetByProviderOrderID 根据第三方订单ID获取订单
+	GetByProviderOrderID(ctx context.Context, providerOrderID string) (*models.Order, error)
+
+	// BatchUpdateStatus 批量更新订单状态
+	BatchUpdateStatus(ctx context.Context, orderIDs []uint, status models.OrderStatus) error
 }
 
 // orderRepository 订单仓储实现
@@ -105,4 +122,87 @@ func (r *orderRepository) CountByUserID(ctx context.Context, userID int64) (int6
 		Where("user_id = ?", userID).
 		Count(&count).Error
 	return count, err
+}
+
+// GetByIDWithDetail 根据ID获取订单（包含详情）
+func (r *orderRepository) GetByIDWithDetail(ctx context.Context, id uint) (*models.Order, error) {
+	var order models.Order
+	err := r.db.WithContext(ctx).
+		Preload("User").
+		Preload("Product").
+		Preload("OrderDetail").
+		First(&order, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &order, nil
+}
+
+// GetPendingSyncOrders 获取需要同步的待处理订单
+func (r *orderRepository) GetPendingSyncOrders(ctx context.Context, limit int) ([]*models.Order, error) {
+	var orders []*models.Order
+	query := r.db.WithContext(ctx).
+		Where("status = ? AND provider_order_id != ''", models.OrderStatusProcessing).
+		Where("next_sync_at IS NULL OR next_sync_at <= ?", time.Now()).
+		Order("created_at ASC")
+
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	err := query.Find(&orders).Error
+	return orders, err
+}
+
+// UpdateSyncInfo 更新订单同步信息
+func (r *orderRepository) UpdateSyncInfo(ctx context.Context, id uint, syncAttempts int, nextSyncAt *time.Time) error {
+	updates := map[string]interface{}{
+		"sync_attempts": syncAttempts,
+		"last_sync_at":  time.Now(),
+	}
+
+	if nextSyncAt != nil {
+		updates["next_sync_at"] = *nextSyncAt
+	}
+
+	return r.db.WithContext(ctx).Model(&models.Order{}).
+		Where("id = ?", id).
+		Updates(updates).Error
+}
+
+// GetByProviderOrderID 根据第三方订单ID获取订单
+func (r *orderRepository) GetByProviderOrderID(ctx context.Context, providerOrderID string) (*models.Order, error) {
+	var order models.Order
+	err := r.db.WithContext(ctx).
+		Preload("User").
+		Preload("Product").
+		Where("provider_order_id = ?", providerOrderID).
+		First(&order).Error
+	if err != nil {
+		return nil, err
+	}
+	return &order, nil
+}
+
+// BatchUpdateStatus 批量更新订单状态
+func (r *orderRepository) BatchUpdateStatus(ctx context.Context, orderIDs []uint, status models.OrderStatus) error {
+	if len(orderIDs) == 0 {
+		return nil
+	}
+
+	updates := map[string]interface{}{
+		"status": status,
+	}
+
+	// 根据状态设置相应的时间戳
+	switch status {
+	case models.OrderStatusCompleted:
+		updates["completed_at"] = time.Now()
+	case models.OrderStatusPaid:
+		updates["paid_at"] = time.Now()
+	}
+
+	return r.db.WithContext(ctx).Model(&models.Order{}).
+		Where("id IN ?", orderIDs).
+		Updates(updates).Error
 }

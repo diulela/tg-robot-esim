@@ -19,7 +19,9 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.UserSession{},
 		&models.Wallet{},
 		&models.Order{},
+		&models.OrderDetail{},
 		&models.RechargeOrder{},
+		&models.WalletHistory{},
 	)
 
 	if err != nil {
