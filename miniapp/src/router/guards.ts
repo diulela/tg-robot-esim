@@ -8,7 +8,7 @@ import { telegramService } from '@/services/telegram'
 export function setupRouterGuards(router: Router) {
   // 全局前置守卫
   router.beforeEach(async (to, from, next) => {
-    console.log(`[Router] 导航到: ${to.name} (${to.path})`)
+    console.log(`[Router] 导航到: ${String(to.name)} (${to.path})`)
     
     try {
       // 执行各种守卫检查
@@ -21,7 +21,7 @@ export function setupRouterGuards(router: Router) {
 
   // 全局后置钩子
   router.afterEach((to, from) => {
-    console.log(`[Router] 导航完成: ${from.name} -> ${to.name}`)
+    console.log(`[Router] 导航完成: ${String(from.name)} -> ${String(to.name)}`)
     
     // 更新页面状态
     updatePageState(to)

@@ -22,7 +22,7 @@ type ProductDetail struct {
 	Features     string         `gorm:"type:text" json:"features"` // JSON 数组格式
 	Status       string         `gorm:"size:20;default:'active'" json:"status"`
 	ApiCreatedAt string         `gorm:"size:50" json:"api_created_at"` // API返回的创建时间
-	SyncedAt     time.Time      `gorm:"index" json:"synced_at"`        // 最后同步时间
+	SyncedAt     *time.Time     `gorm:"index" json:"synced_at"`        // 最后同步时间
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`

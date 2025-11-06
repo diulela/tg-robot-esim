@@ -29,7 +29,7 @@ type Product struct {
 	IsRecommend    bool           `gorm:"default:false" json:"is_recommend"`
 	SortOrder      int            `gorm:"default:0" json:"sort_order"`
 	Status         string         `gorm:"size:20;default:'active'" json:"status"` // active, inactive
-	SyncedAt       time.Time      `gorm:"index" json:"synced_at"`                 // 最后同步时间
+	SyncedAt       *time.Time     `gorm:"index" json:"synced_at"`                 // 最后同步时间
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`

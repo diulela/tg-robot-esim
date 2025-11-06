@@ -193,8 +193,12 @@ func listProducts(ctx context.Context, db *data.Database, productType string) er
 		fmt.Printf("   流量: %dMB | 有效期: %d天\n", product.DataSize, product.ValidDays)
 		fmt.Printf("   价格: $%.2f | 成本: $%.2f | 利润: $%.2f\n",
 			product.Price, product.CostPrice, product.Price-product.CostPrice)
+		syncedAtStr := "未同步"
+		if product.SyncedAt != nil {
+			syncedAtStr = product.SyncedAt.Format("2006-01-02 15:04:05")
+		}
 		fmt.Printf("   状态: %s | 同步时间: %s\n",
-			product.Status, product.SyncedAt.Format("2006-01-02 15:04:05"))
+			product.Status, syncedAtStr)
 		fmt.Println()
 	}
 
@@ -253,7 +257,7 @@ func convertToModel(apiProduct *esim.Product) (*models.Product, error) {
 		IsRecommend:    apiProduct.IsRecommend,
 		SortOrder:      apiProduct.SortOrder,
 		Status:         apiProduct.Status,
-		SyncedAt:       time.Now(),
+		SyncedAt:       &[]time.Time{time.Now()}[0],
 	}, nil
 }
 
@@ -408,7 +412,7 @@ func convertToDetailModel(productID int, apiDetail *esim.ProductDetail) (*models
 		Features:     string(featuresJSON),
 		Status:       apiDetail.Status,
 		ApiCreatedAt: "", // API 响应中没有 createdAt 字段
-		SyncedAt:     time.Now(),
+		SyncedAt:     &[]time.Time{time.Now()}[0],
 	}, nil
 }
 
