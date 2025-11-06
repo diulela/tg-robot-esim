@@ -44,16 +44,6 @@ const routes: RouteRecordRaw[] = [
     props: true
   },
   {
-    path: '/products/:id',
-    name: 'ProductDetail',
-    component: () => import('@/views/ProductDetailPage.vue'),
-    meta: {
-      title: '商品详情',
-      showBackButton: true
-    },
-    props: true
-  },
-  {
     path: '/orders',
     name: 'Orders',
     component: () => import('@/views/OrderPage.vue'),
