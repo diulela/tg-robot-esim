@@ -12,6 +12,19 @@
           <h2 class="status-title">{{ statusTitle }}</h2>
           <p class="status-subtitle">{{ statusSubtitle }}</p>
         </div>
+
+        <div class="status-actions">
+          <v-btn
+            icon
+            variant="text"
+            size="small"
+            @click="refreshData"
+            :loading="isLoading"
+            class="refresh-btn"
+          >
+            <v-icon>mdi-refresh</v-icon>
+          </v-btn>
+        </div>
       </div>
 
       <!-- 订单信息卡片 -->
@@ -86,9 +99,20 @@
 
       <!-- eSIM 信息卡片 -->
       <div v-if="order.esimInfo" class="esim-section">
-        <ESIMInfoCard :esim-info="order.esimInfo" :show-q-r-code="true" :allow-copy="true" @copy-iccid="handleCopyICCID"
-          @copy-activation-code="handleCopyActivationCode" @download-q-r="handleDownloadQR"
-          @share-q-r="handleShareQR" />
+        <ESIMInfoCard 
+          :esim-info="order.esimInfo" 
+          :order-id="parseInt(order['id'])"
+          :show-q-r-code="true" 
+          :allow-copy="true" 
+          @copy-iccid="handleCopyICCID"
+          @copy-activation-code="handleCopyActivationCode" 
+          @download-q-r="handleDownloadQR"
+          @share-q-r="handleShareQR"
+          @open-usage-dialog="showUsageDialog = true"
+          @open-history-dialog="showHistoryDialog = true"
+          @open-topup-dialog="showTopupDialog = true"
+          @open-install-guide="showInstallGuide = true"
+        />
       </div>
 
       <!-- 操作按钮 -->
@@ -108,17 +132,52 @@
         </v-btn>
       </div>
     </div>
+
+    <!-- eSIM 相关弹窗 -->
+    <ESIMUsageDialog 
+      v-if="order"
+      v-model="showUsageDialog" 
+      :order-id="parseInt(order['id'])"
+      @open-topup="showTopupDialog = true"
+    />
+    
+    <ESIMHistoryDialog 
+      v-if="order"
+      v-model="showHistoryDialog" 
+      :order-id="parseInt(order['id'])"
+    />
+    
+    <ESIMTopupDialog 
+      v-if="order"
+      v-model="showTopupDialog" 
+      :order-id="parseInt(order['id'])"
+      @topup-success="handleTopupSuccess"
+    />
+    
+    <ESIMInstallGuide 
+      v-if="order && order.esimInfo"
+      v-model="showInstallGuide" 
+      :order-id="parseInt(order['id'])"
+      :esim-info="order.esimInfo"
+    />
   </PageWrapper>
 </template>
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useOrdersStore } from '@/stores/orders'
+import { useESIMStore } from '@/stores/esim'
 import { useAppStore } from '@/stores/app'
 import { telegramService } from '@/services/telegram'
 import PageWrapper from '@/components/layout/PageWrapper.vue'
 import ESIMInfoCard from '@/components/business/ESIMInfoCard.vue'
-import type { Order, OrderStatus } from '@/types'
+import type { OrderStatus } from '@/types'
+
+// 异步加载弹窗组件
+const ESIMUsageDialog = defineAsyncComponent(() => import('@/components/business/ESIMUsageDialog.vue'))
+const ESIMHistoryDialog = defineAsyncComponent(() => import('@/components/business/ESIMHistoryDialog.vue'))
+const ESIMTopupDialog = defineAsyncComponent(() => import('@/components/business/ESIMTopupDialog.vue'))
+const ESIMInstallGuide = defineAsyncComponent(() => import('@/components/business/ESIMInstallGuide.vue'))
 
 // Props
 interface Props {
@@ -131,6 +190,7 @@ const props = defineProps<Props>()
 const route = useRoute()
 const router = useRouter()
 const ordersStore = useOrdersStore()
+const esimStore = useESIMStore()
 const appStore = useAppStore()
 
 // 响应式状态
@@ -138,8 +198,14 @@ const isLoading = ref(false)
 const error = ref<string | null>(null)
 const retryingPayment = ref(false)
 
+// 弹窗状态
+const showUsageDialog = ref(false)
+const showHistoryDialog = ref(false)
+const showTopupDialog = ref(false)
+const showInstallGuide = ref(false)
+
 // 计算属性
-const orderId = computed(() => props.id || route.params.id as string)
+const orderId = computed(() => props.id || route.params['id'] as string)
 
 const order = computed(() => {
   if (orderId.value) {
@@ -259,7 +325,7 @@ const retryPayment = async () => {
   retryingPayment.value = true
 
   try {
-    const paymentUrl = await ordersStore.retryPayment(order.value.id)
+    const paymentUrl = await ordersStore.retryPayment(order.value['id'] as string)
 
     // 打开支付链接
     telegramService.openLink(paymentUrl)
@@ -322,6 +388,53 @@ const goBack = () => {
   router.push({ name: 'Orders' })
 }
 
+const handleTopupSuccess = async () => {
+  // 充值成功后刷新订单详情和清除 eSIM 缓存
+  try {
+    if (order.value) {
+      esimStore.clearCache(parseInt(order.value['id'] as string))
+    }
+    await fetchOrderDetail()
+    appStore.showNotification({
+      type: 'success',
+      message: '充值成功，订单信息已更新',
+      duration: 3000
+    })
+  } catch (error) {
+    console.error('刷新订单详情失败:', error)
+    appStore.showNotification({
+      type: 'warning',
+      message: '充值成功，但刷新订单信息失败，请手动刷新页面',
+      duration: 4000
+    })
+  }
+}
+
+// 刷新页面数据
+const refreshData = async () => {
+  if (!order.value) return
+  
+  try {
+    // 清除 eSIM 相关缓存
+    esimStore.clearCache(parseInt(order.value['id'] as string))
+    
+    // 重新获取订单详情
+    await fetchOrderDetail()
+    
+    appStore.showNotification({
+      type: 'success',
+      message: '数据已刷新',
+      duration: 2000
+    })
+  } catch (error) {
+    appStore.showNotification({
+      type: 'error',
+      message: '刷新失败，请重试',
+      duration: 2000
+    })
+  }
+}
+
 // 生命周期
 onMounted(async () => {
   await fetchOrderDetail()
@@ -365,6 +478,17 @@ onMounted(async () => {
   font-size: 0.875rem;
   opacity: 0.9;
   margin: 0;
+  }
+  }
+
+  .status-actions {
+  .refresh-btn {
+  color: white;
+  background: rgba(255, 255, 255, 0.2);
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
   }
   }
   }

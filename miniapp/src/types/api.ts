@@ -62,6 +62,21 @@ export interface Order {
   esimInfo?: ESIMInfo
   transactionHash?: string
   refundReason?: string
+  
+  // 新增 eSIM 相关字段
+  esimUsage?: ESIMUsageInfo
+  packageHistory?: PackageHistoryItem[]
+  canTopup?: boolean
+  canExportPDF?: boolean
+}
+
+// eSIM 状态枚举
+export enum ESIMStatus {
+  PENDING = 'pending',
+  ACTIVE = 'active',
+  EXPIRED = 'expired',
+  SUSPENDED = 'suspended',
+  TERMINATED = 'terminated'
 }
 
 // eSIM 信息类型
@@ -70,11 +85,92 @@ export interface ESIMInfo {
   activationCode: string
   qrCode: string
   apnType: 'manual' | 'automatic'
+  apnValue?: string
   isRoaming: boolean
   activatedAt?: string
   expiresAt?: string
   dataUsed?: number
   dataRemaining?: number
+  dataTotal?: number
+  usagePercentage?: string
+  status?: ESIMStatus
+  lpaAddress?: string
+  confirmationCode?: string
+}
+
+// eSIM 使用情况信息
+export interface ESIMUsageInfo {
+  iccid: string
+  status: ESIMStatus
+  activationTime: string
+  expireTime: string
+  dataUsed: number // MB
+  dataTotal: number // MB
+  dataRemaining: number // MB
+  usagePercentage: string
+}
+
+// eSIM 使用情况响应
+export interface ESIMUsageResponse {
+  success: boolean
+  message: string
+  data: {
+    orderId: number
+    esim: ESIMUsageInfo
+  }
+}
+
+// 套餐历史项
+export interface PackageHistoryItem {
+  id: string
+  packageName: string
+  dataSize: string
+  validDays: number
+  price: number
+  status: 'FINISHED' | 'ACTIVE' | 'EXPIRED'
+  remainingData: string
+  activationTime: string
+  expireTime: string
+  createdAt: string
+}
+
+// 充值套餐
+export interface TopupPackage {
+  id: string
+  title: string
+  data: string
+  price: number
+  validity: number
+  description: string
+}
+
+// 充值套餐响应
+export interface TopupPackagesResponse {
+  success: boolean
+  message: string
+  data: {
+    orderId: number
+    packages: TopupPackage[]
+  }
+}
+
+// 充值请求
+export interface TopupRequest {
+  packageId: string
+  description?: string
+}
+
+// 充值响应
+export interface TopupResponse {
+  success: boolean
+  message: string
+  data: {
+    topupOrderId: number
+    orderId: number
+    packageId: string
+    amount: number
+    status: string
+  }
 }
 
 // 区域类型
