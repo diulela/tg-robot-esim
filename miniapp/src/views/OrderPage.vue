@@ -285,8 +285,7 @@ watch(
 onMounted(async () => {
   console.log('[OrderPage] 组件挂载')
   
-  // 设置页面标题
-  appStore.setCurrentPage('Orders', '我的订单')
+  // 页面初始化完成
   
   // 从路由查询参数获取初始状态
   const initialStatus = route.query.status as string

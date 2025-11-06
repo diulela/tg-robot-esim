@@ -323,11 +323,11 @@ const getTransitionName = (route: any) => {
 }
 
 const onPageEnter = () => {
-  appStore.setPageLoading(false)
+  appStore.setLoading(false)
 }
 
 const onPageLeave = () => {
-  appStore.setPageLoading(true)
+  appStore.setLoading(true)
 }
 
 const removeNotification = (id: string) => {

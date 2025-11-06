@@ -138,11 +138,7 @@ onMounted(async () => {
   hotItemCode.value = route.params['hotItemCode'] as string
   hotItemName.value = (route.query['name'] as string) || hotItemCode.value
 
-  // 设置页面状态
-  appStore.setCurrentPage('hot-products-secondary', hotItemName.value)
-  appStore.setBackButton(true)
-  appStore.setBottomNav(false)
-  appStore.recordPageLoadTime()
+  // 页面初始化完成
 
   // 设置当前热门项
   productsStore.setCurrentHotItem({
@@ -155,9 +151,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  // 恢复底部导航
-  appStore.setBackButton(false)
-  appStore.setBottomNav(true)
+  // 页面卸载清理
 })
 </script>
 

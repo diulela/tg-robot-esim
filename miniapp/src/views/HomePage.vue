@@ -325,8 +325,7 @@ const showMoreActions = () => {
 onMounted(async () => {
   console.log('[HomePage] 组件挂载')
   
-  // 设置页面标题
-  appStore.setCurrentPage('Home', '首页')
+  // 页面初始化完成
   
   // 启动时间更新定时器
   timeInterval = setInterval(updateCurrentTime, 60000) // 每分钟更新一次
