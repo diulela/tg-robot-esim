@@ -195,6 +195,15 @@ export interface CreateOrderRequest {
   product_id: number // 后端期望的是 number 类型的 product_id
   paymentMethod?: PaymentMethod
   quantity?: number
+  order_note?: string // 订单备注
+}
+
+// 购买请求数据结构
+export interface PurchaseRequest {
+  product_id: number
+  quantity: number
+  order_note?: string
+  payment_method?: PaymentMethod
 }
 
 // 钱包充值请求

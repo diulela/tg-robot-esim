@@ -310,6 +310,66 @@ export interface DialogEmits {
   cancel: []
 }
 
+// 购买弹窗组件 Props
+export interface PurchaseModalProps {
+  visible: boolean
+  product: Product | null
+}
+
+export interface PurchaseModalEmits {
+  'update:visible': [value: boolean]
+  'purchase-success': [order: Order]
+  'purchase-error': [error: string]
+}
+
+export interface QuantitySelectorProps {
+  modelValue: number
+  min?: number
+  max?: number
+  disabled?: boolean
+}
+
+export interface QuantitySelectorEmits {
+  'update:modelValue': [value: number]
+}
+
+export interface OrderNoteInputProps {
+  modelValue: string
+  placeholder?: string
+  maxLength?: number
+  disabled?: boolean
+}
+
+export interface OrderNoteInputEmits {
+  'update:modelValue': [value: string]
+  'focus': [event: FocusEvent]
+  'blur': [event: FocusEvent]
+}
+
+export interface PriceCalculatorProps {
+  unitPrice: number
+  quantity: number
+  currency?: string
+  showDetails?: boolean
+  animationDuration?: number
+}
+
+export interface PriceCalculatorEmits {
+  // 价格计算器通常不需要事件，但可以添加价格变化事件
+  'price-change': [price: number]
+}
+
+// 购买弹窗状态数据结构
+export interface PurchaseModalData {
+  product: Product | null
+  quantity: number
+  orderNote: string
+  totalPrice: number
+  isLoading: boolean
+  error: string | null
+  visible: boolean
+}
+
 // 通用事件类型
 export interface ClickEvent {
   originalEvent: MouseEvent

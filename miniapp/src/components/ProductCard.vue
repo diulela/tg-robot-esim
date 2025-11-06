@@ -75,11 +75,23 @@
         </div>
       </div>
     </div>
+
+    <!-- 购买弹窗 -->
+    <PurchaseModal
+      v-model:visible="showPurchaseModal"
+      :product="product"
+      @purchase-success="handlePurchaseSuccess"
+      @purchase-error="handlePurchaseError"
+    />
   </v-card>
 </template>
 
 <script setup lang="ts">
-import type { ProductCardProps, ProductCardEmits } from '@/types'
+import { ref } from 'vue'
+import { useAppStore } from '@/stores/app'
+import { telegramService } from '@/services/telegram'
+import type { ProductCardProps, ProductCardEmits, Order } from '@/types'
+import PurchaseModal from './business/PurchaseModal.vue'
 
 // Props
 const props = withDefaults(defineProps<ProductCardProps>(), {
@@ -88,6 +100,12 @@ const props = withDefaults(defineProps<ProductCardProps>(), {
 
 // Emits
 const emit = defineEmits<ProductCardEmits>()
+
+// 组合式 API
+const appStore = useAppStore()
+
+// 响应式状态
+const showPurchaseModal = ref(false)
 
 // 方法
 const formatValidDays = (days: number): string => {
@@ -103,7 +121,44 @@ const handleClick = () => {
 }
 
 const handleBuy = () => {
+  // 触觉反馈
+  telegramService.impactFeedback('medium')
+  
+  // 显示购买弹窗
+  showPurchaseModal.value = true
+  
+  // 发送购买事件（保持向后兼容）
   emit('buy', props.product)
+}
+
+const handlePurchaseSuccess = (order: Order) => {
+  // 购买成功处理
+  console.log('购买成功:', order)
+  
+  // 显示成功提示
+  appStore.showNotification({
+    type: 'success',
+    message: `${props.product.name} 购买成功！`,
+    duration: 3000
+  })
+  
+  // 触觉反馈
+  telegramService.impactFeedback('heavy')
+}
+
+const handlePurchaseError = (error: string) => {
+  // 购买失败处理
+  console.error('购买失败:', error)
+  
+  // 显示错误提示
+  appStore.showNotification({
+    type: 'error',
+    message: error,
+    duration: 3000
+  })
+  
+  // 触觉反馈
+  telegramService.impactFeedback('heavy')
 }
 </script>
 
