@@ -49,12 +49,6 @@ async function executeGuards(
   // 2. 权限守卫
   if (!(await permissionGuard(to, from, next))) return
 
-  // 3. 数据预加载守卫
-  if (!(await preloadGuard(to, from, next))) return
-
-  // 4. 网络状态守卫
-  if (!(await networkGuard(to, from, next))) return
-
   // 所有守卫通过，继续导航
   next()
 }
@@ -140,106 +134,17 @@ async function permissionGuard(
   return true
 }
 
-// 数据预加载守卫
-async function preloadGuard(
-  to: RouteLocationNormalized,
-  from: RouteLocationNormalized,
-  next: NavigationGuardNext
-): Promise<boolean> {
-  const appStore = useAppStore()
-  
-  try {
-    // 根据路由预加载必要数据
-    switch (to.name) {
-      case 'Orders':
-      case 'OrderDetail':
-        // 预加载订单数据
-        // await preloadOrderData(to)
-        break
-        
-      case 'Products':
-      case 'ProductDetail':
-        // 预加载产品数据
-        // await preloadProductData(to)
-        break
-        
-      case 'Regions':
-      case 'Countries':
-        // 预加载区域数据
-        // await preloadRegionData(to)
-        break
-        
-      case 'Wallet':
-      case 'WalletRecharge':
-        // 预加载钱包数据
-        // await preloadWalletData(to)
-        break
-    }
-  } catch (error) {
-    console.warn('[Router] 数据预加载失败:', error)
-    
-    // 数据预加载失败不阻止导航，但显示警告
-    appStore.showNotification({
-      type: 'warning',
-      message: '数据加载失败，页面可能显示不完整',
-      duration: 3000
-    })
-  }
 
-  return true
-}
-
-// 网络状态守卫
-async function networkGuard(
-  to: RouteLocationNormalized,
-  from: RouteLocationNormalized,
-  next: NavigationGuardNext
-): Promise<boolean> {
-  const appStore = useAppStore()
-  
-  // 检查网络状态
-  if (appStore.isOffline) {
-    // 检查目标页面是否支持离线访问
-    const offlinePages = ['Home', 'Help', 'About', 'Settings']
-    
-    if (!offlinePages.includes(to.name as string)) {
-      console.warn('[Router] 离线状态，无法访问需要网络的页面')
-      
-      appStore.showNotification({
-        type: 'warning',
-        message: '网络连接不可用，无法访问此页面',
-        duration: 3000
-      })
-      
-      // 如果当前页面支持离线，则停留在当前页面
-      if (offlinePages.includes(from.name as string)) {
-        next(false)
-      } else {
-        // 否则重定向到首页
-        next({ name: 'Home' })
-      }
-      return false
-    }
-  }
-
-  return true
-}
 
 // 更新页面状态
 function updatePageState(to: RouteLocationNormalized) {
-  const appStore = useAppStore()
   
-  // 更新当前页面信息
-  appStore.setCurrentPage(to.name as string, to.meta.title)
-  
+
   // 更新页面标题
   if (to.meta.title) {
     document.title = `${to.meta.title} - eSIM Mini App`
   }
-  
-  // 更新导航状态
-  appStore.setBackButton(to.meta.showBackButton || false)
-  appStore.setBottomNav(to.meta.showBottomNav || false)
+
 }
 
 // 更新 Telegram 按钮状态

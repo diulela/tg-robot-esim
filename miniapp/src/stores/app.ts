@@ -11,6 +11,13 @@ export const useAppStore = defineStore('app', () => {
   const language = ref('zh-CN')
   const isOnline = ref(navigator.onLine)
   const error = ref<string | null>(null)
+  
+  // 页面状态
+  const pageTitle = ref('首页')
+  const showBackButton = ref(false)
+  const showBottomNav = ref(true)
+  const pageLoading = ref(false)
+  const debugMode = ref(import.meta.env.DEV)
 
   // 计算属性
   const hasNotifications = computed(() => notifications.value.length > 0)
@@ -29,6 +36,8 @@ export const useAppStore = defineStore('app', () => {
     }
     return theme.value
   })
+
+  const isDarkMode = computed(() => currentTheme.value === 'dark')
 
   // 操作方法
   const setLoading = (loading: boolean) => {
@@ -120,6 +129,28 @@ export const useAppStore = defineStore('app', () => {
     error.value = null
   }
 
+  // 页面状态管理方法
+  const setPageTitle = (title: string) => {
+    pageTitle.value = title
+  }
+
+  const setBackButton = (show: boolean) => {
+    showBackButton.value = show
+  }
+
+  const setBottomNav = (show: boolean) => {
+    showBottomNav.value = show
+  }
+
+  const setPageLoading = (loading: boolean) => {
+    pageLoading.value = loading
+  }
+
+  const toggleTheme = async () => {
+    const newTheme = isDarkMode.value ? 'light' : 'dark'
+    setTheme(newTheme)
+  }
+
   // 初始化方法
   const initialize = () => {
     // 从本地存储恢复设置
@@ -202,11 +233,17 @@ export const useAppStore = defineStore('app', () => {
     language: readonly(language),
     isOnline: readonly(isOnline),
     error: readonly(error),
+    pageTitle: readonly(pageTitle),
+    showBackButton: readonly(showBackButton),
+    showBottomNav: readonly(showBottomNav),
+    pageLoading: readonly(pageLoading),
+    debugMode: readonly(debugMode),
 
     // 计算属性
     hasNotifications,
     activeNotifications,
     currentTheme,
+    isDarkMode,
 
     // 操作方法
     setLoading,
@@ -222,6 +259,11 @@ export const useAppStore = defineStore('app', () => {
     setOnlineStatus,
     setError,
     clearError,
+    setPageTitle,
+    setBackButton,
+    setBottomNav,
+    setPageLoading,
+    toggleTheme,
     initialize,
     handleGlobalError,
     retry,
