@@ -21,27 +21,6 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/regions',
-    name: 'Regions',
-    component: () => import('@/views/RegionPage.vue'),
-    meta: {
-      title: '选择区域',
-      showBackButton: true,
-      keepAlive: true
-    }
-  },
-  {
-    path: '/countries/:region?',
-    name: 'Countries',
-    component: () => import('@/views/CountryPage.vue'),
-    meta: {
-      title: '选择国家',
-      showBackButton: true,
-      keepAlive: true
-    },
-    props: true
-  },
-  {
     path: '/products',
     name: 'Products',
     component: () => import('@/views/ProductPage.vue'),
