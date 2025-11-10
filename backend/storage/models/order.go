@@ -46,10 +46,6 @@ type Order struct {
 	LastSyncAt      *time.Time `gorm:"index" json:"last_sync_at"`               // 最后同步时间
 	NextSyncAt      *time.Time `gorm:"index" json:"next_sync_at"`               // 下次同步时间
 
-	// 关联
-	User        User         `gorm:"foreignKey:UserID" json:"user"`
-	Product     Product      `gorm:"foreignKey:ProductID" json:"product"`
-	OrderDetail *OrderDetail `gorm:"foreignKey:OrderID" json:"order_detail"`
 }
 
 // TableName 指定表名
