@@ -39,8 +39,8 @@ type WalletHistory struct {
 	RelatedID     string              `gorm:"size:100;index" json:"related_id"`                  // 关联ID（订单号等）
 	TxHash        string              `gorm:"size:100;index" json:"tx_hash"`                     // 区块链交易哈希（如果有）
 	Metadata      string              `gorm:"type:text" json:"metadata"`                         // 额外元数据（JSON格式）
-	CreatedAt     time.Time           `json:"created_at"`
-	UpdatedAt     time.Time           `json:"updated_at"`
+	CreatedAt     time.Time           `gorm:"type:datetime" json:"created_at"`
+	UpdatedAt     time.Time           `gorm:"type:datetime" json:"updated_at"`
 	DeletedAt     gorm.DeletedAt      `gorm:"index" json:"deleted_at,omitempty"`
 
 	// 关联

@@ -29,8 +29,8 @@ type Product struct {
 	IsRecommend    bool           `gorm:"default:false" json:"is_recommend"`
 	SortOrder      int            `gorm:"default:0" json:"sort_order"`
 	Status         string         `gorm:"size:20;default:'active'" json:"status"` // active, inactive
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
+	CreatedAt      time.Time      `gorm:"type:datetime" json:"created_at"`
+	UpdatedAt      time.Time      `gorm:"type:datetime" json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 

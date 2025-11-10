@@ -13,8 +13,8 @@ type OrderDetail struct {
 	ProviderData string    `gorm:"type:longtext" json:"provider_data"`   // JSON 格式存储第三方完整数据
 	OrderItems   string    `gorm:"type:longtext" json:"order_items"`     // JSON 格式存储 OrderItems
 	Esims        string    `gorm:"type:longtext" json:"esims"`           // JSON 格式存储 Esims
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	CreatedAt    time.Time `gorm:"type:datetime" json:"created_at"`
+	UpdatedAt    time.Time `gorm:"type:datetime" json:"updated_at"`
 
 	// 关联
 	Order Order `gorm:"foreignKey:OrderID" json:"order"`

@@ -31,8 +31,8 @@ type RechargeOrder struct {
 	Remark        string         `gorm:"type:text" json:"remark"`                               // 备注
 	ExpiresAt     time.Time      `gorm:"index" json:"expires_at"`                               // 过期时间
 	ConfirmedAt   *time.Time     `json:"confirmed_at,omitempty"`                                // 确认时间
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
+	CreatedAt     time.Time      `gorm:"type:datetime" json:"created_at"`
+	UpdatedAt     time.Time      `gorm:"type:datetime" json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 
 	// 关联

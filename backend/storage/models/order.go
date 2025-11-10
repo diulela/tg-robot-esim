@@ -43,8 +43,8 @@ type Order struct {
 	ProviderOrderID string     `gorm:"size:100;index" json:"provider_order_id"` // 第三方订单ID
 	ProviderOrderNo string     `gorm:"size:100;index" json:"provider_order_no"` // 第三方订单号
 	SyncAttempts    int        `gorm:"default:0" json:"sync_attempts"`          // 同步尝试次数
-	LastSyncAt      *time.Time `gorm:"index" json:"last_sync_at"`               // 最后同步时间
-	NextSyncAt      *time.Time `gorm:"index" json:"next_sync_at"`               // 下次同步时间
+	LastSyncAt      *time.Time `gorm:"index;type:datetime" json:"last_sync_at"` // 最后同步时间
+	NextSyncAt      *time.Time `gorm:"index;type:datetime" json:"next_sync_at"` // 下次同步时间
 
 	User        User         `gorm:"foreignKey:UserID" json:"user"`
 	Product     Product      `gorm:"foreignKey:ProductID" json:"product"`

@@ -17,8 +17,8 @@ type User struct {
 	WalletAddress string         `gorm:"size:100;index" json:"wallet_address"` // 钱包地址
 	IsVIP         bool           `gorm:"default:false" json:"is_vip"`          // VIP 状态
 	IsActive      bool           `gorm:"default:true" json:"is_active"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
+	CreatedAt     time.Time      `gorm:"type:datetime" json:"created_at"`
+	UpdatedAt     time.Time      `gorm:"type:datetime" json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 

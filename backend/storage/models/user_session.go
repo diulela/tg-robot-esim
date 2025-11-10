@@ -15,8 +15,8 @@ type UserSession struct {
 	CurrentMenu string         `gorm:"type:varchar(100)" json:"current_menu"`
 	Parameters  string         `gorm:"type:text" json:"parameters"` // JSON 格式存储
 	LastActive  time.Time      `gorm:"index" json:"last_active"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	CreatedAt   time.Time      `gorm:"type:datetime" json:"created_at"`
+	UpdatedAt   time.Time      `gorm:"type:datetime" json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 
 	// 关联

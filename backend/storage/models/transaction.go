@@ -29,9 +29,9 @@ type Transaction struct {
 	BlockHash     string            `json:"block_hash"`
 	GasUsed       int64             `json:"gas_used"`
 	GasPrice      string            `json:"gas_price"`
-	Timestamp     time.Time         `json:"timestamp"`
-	CreatedAt     time.Time         `json:"created_at"`
-	UpdatedAt     time.Time         `json:"updated_at"`
+	Timestamp     time.Time         `gorm:"type:datetime" json:"timestamp"`
+	CreatedAt     time.Time         `gorm:"type:datetime" json:"created_at"`
+	UpdatedAt     time.Time         `gorm:"type:datetime" json:"updated_at"`
 	DeletedAt     gorm.DeletedAt    `gorm:"index" json:"deleted_at,omitempty"`
 }
 
