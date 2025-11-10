@@ -21,7 +21,7 @@ const (
 type RechargeOrder struct {
 	ID            uint           `gorm:"primaryKey;autoIncrement" json:"id"`
 	OrderNo       string         `gorm:"uniqueIndex;size:32;not null" json:"order_no"`          // 订单号
-	UserID        int64          `gorm:"index;not null" json:"user_id"`                         // 用户ID
+	UserID        int64          `gorm:"index;not null" json:"user_id"`                         // 用户 Telegram ID
 	Amount        string         `gorm:"type:decimal(10,2);not null" json:"amount"`             // 用户输入的充值金额
 	ExactAmount   string         `gorm:"type:decimal(10,4);index;not null" json:"exact_amount"` // 精确金额（用于匹配交易）
 	WalletAddress string         `gorm:"size:100;not null" json:"wallet_address"`               // 系统收款地址
@@ -34,9 +34,6 @@ type RechargeOrder struct {
 	CreatedAt     time.Time      `gorm:"type:datetime" json:"created_at"`
 	UpdatedAt     time.Time      `gorm:"type:datetime" json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
-
-	// 关联
-	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
 // TableName 指定表名

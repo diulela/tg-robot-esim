@@ -45,10 +45,6 @@ type Order struct {
 	SyncAttempts    int        `gorm:"default:0" json:"sync_attempts"`          // 同步尝试次数
 	LastSyncAt      *time.Time `gorm:"index;type:datetime" json:"last_sync_at"` // 最后同步时间
 	NextSyncAt      *time.Time `gorm:"index;type:datetime" json:"next_sync_at"` // 下次同步时间
-
-	User        User         `gorm:"foreignKey:UserID" json:"user"`
-	Product     Product      `gorm:"foreignKey:ProductID" json:"product"`
-	OrderDetail *OrderDetail `gorm:"foreignKey:OrderID" json:"order_detail"`
 }
 
 // TableName 指定表名

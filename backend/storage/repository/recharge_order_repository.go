@@ -44,7 +44,6 @@ func (r *rechargeOrderRepository) Create(ctx context.Context, order *models.Rech
 func (r *rechargeOrderRepository) GetByID(ctx context.Context, id uint) (*models.RechargeOrder, error) {
 	var order models.RechargeOrder
 	err := r.db.WithContext(ctx).
-		Preload("User").
 		First(&order, id).Error
 	if err != nil {
 		return nil, err
@@ -56,7 +55,6 @@ func (r *rechargeOrderRepository) GetByID(ctx context.Context, id uint) (*models
 func (r *rechargeOrderRepository) GetByOrderNo(ctx context.Context, orderNo string) (*models.RechargeOrder, error) {
 	var order models.RechargeOrder
 	err := r.db.WithContext(ctx).
-		Preload("User").
 		Where("order_no = ?", orderNo).
 		First(&order).Error
 	if err != nil {

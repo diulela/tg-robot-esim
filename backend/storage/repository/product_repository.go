@@ -43,6 +43,9 @@ type ProductRepository interface {
 
 	// Count 统计产品数量
 	Count(ctx context.Context, conditions map[string]interface{}) (int64, error)
+
+	// GetByIDs 根据ID列表批量获取产品
+	GetByIDs(ctx context.Context, ids []int) ([]*models.Product, error)
 }
 
 // ListParams 列表查询参数
@@ -246,4 +249,20 @@ func (r *productRepository) Count(ctx context.Context, conditions map[string]int
 
 	err := query.Count(&count).Error
 	return count, err
+}
+
+// GetByIDs 根据ID列表批量获取产品
+func (r *productRepository) GetByIDs(ctx context.Context, ids []int) ([]*models.Product, error) {
+	if len(ids) == 0 {
+		return []*models.Product{}, nil
+	}
+
+	var products []*models.Product
+	err := r.db.WithContext(ctx).
+		Where("id IN ?", ids).
+		Find(&products).Error
+	if err != nil {
+		return nil, err
+	}
+	return products, nil
 }

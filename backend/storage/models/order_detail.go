@@ -15,9 +15,6 @@ type OrderDetail struct {
 	Esims        string    `gorm:"type:longtext" json:"esims"`           // JSON 格式存储 Esims
 	CreatedAt    time.Time `gorm:"type:datetime" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"type:datetime" json:"updated_at"`
-
-	// 关联
-	Order Order `gorm:"foreignKey:OrderID" json:"order"`
 }
 
 // TableName 指定表名

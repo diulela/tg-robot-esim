@@ -16,6 +16,7 @@ type UserRepository interface {
 	Update(ctx context.Context, user *models.User) error
 	Delete(ctx context.Context, id int64) error
 	List(ctx context.Context, limit, offset int) ([]*models.User, error)
+	GetByTelegramIDs(ctx context.Context, telegramIDs []int64) ([]*models.User, error)
 }
 
 // userRepository 用户仓库实现
@@ -62,4 +63,19 @@ func (r *userRepository) List(ctx context.Context, limit, offset int) ([]*models
 	var users []*models.User
 	err := r.db.WithContext(ctx).Limit(limit).Offset(offset).Find(&users).Error
 	return users, err
+}
+
+func (r *userRepository) GetByTelegramIDs(ctx context.Context, telegramIDs []int64) ([]*models.User, error) {
+	if len(telegramIDs) == 0 {
+		return []*models.User{}, nil
+	}
+
+	var users []*models.User
+	err := r.db.WithContext(ctx).
+		Where("telegram_id IN ?", telegramIDs).
+		Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
 }

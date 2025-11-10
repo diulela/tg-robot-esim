@@ -370,20 +370,21 @@ func (s *orderService) GetOrderWithDetail(ctx context.Context, orderID uint, use
 		CompletedAt:     order.CompletedAt,
 	}
 
-	// 如果有订单详情，解析 JSON 数据
-	if order.OrderDetail != nil {
+	// 手动获取订单详情
+	orderDetail, err := s.orderDetailRepo.GetByOrderID(ctx, order.ID)
+	if err == nil && orderDetail != nil {
 		// 解析 OrderItems
-		if order.OrderDetail.OrderItems != "" {
+		if orderDetail.OrderItems != "" {
 			var orderItems []OrderItemDetail
-			if err := json.Unmarshal([]byte(order.OrderDetail.OrderItems), &orderItems); err == nil {
+			if err := json.Unmarshal([]byte(orderDetail.OrderItems), &orderItems); err == nil {
 				result.OrderItems = orderItems
 			}
 		}
 
 		// 解析 Esims
-		if order.OrderDetail.Esims != "" {
+		if orderDetail.Esims != "" {
 			var esims []EsimDetail
-			if err := json.Unmarshal([]byte(order.OrderDetail.Esims), &esims); err == nil {
+			if err := json.Unmarshal([]byte(orderDetail.Esims), &esims); err == nil {
 				result.Esims = esims
 			}
 		}

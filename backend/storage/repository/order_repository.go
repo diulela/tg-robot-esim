@@ -56,8 +56,6 @@ func (r *orderRepository) Create(ctx context.Context, order *models.Order) error
 func (r *orderRepository) GetByID(ctx context.Context, id uint) (*models.Order, error) {
 	var order models.Order
 	err := r.db.WithContext(ctx).
-		Preload("User").
-		Preload("Product").
 		First(&order, id).Error
 	if err != nil {
 		return nil, err
@@ -69,8 +67,6 @@ func (r *orderRepository) GetByID(ctx context.Context, id uint) (*models.Order, 
 func (r *orderRepository) GetByOrderNo(ctx context.Context, orderNo string) (*models.Order, error) {
 	var order models.Order
 	err := r.db.WithContext(ctx).
-		Preload("User").
-		Preload("Product").
 		Where("order_no = ?", orderNo).
 		First(&order).Error
 	if err != nil {
@@ -83,7 +79,6 @@ func (r *orderRepository) GetByOrderNo(ctx context.Context, orderNo string) (*mo
 func (r *orderRepository) GetByUserID(ctx context.Context, userID int64, limit, offset int) ([]*models.Order, error) {
 	var orders []*models.Order
 	query := r.db.WithContext(ctx).
-		Preload("Product").
 		Where("user_id = ?", userID).
 		Order("created_at DESC")
 
@@ -128,9 +123,6 @@ func (r *orderRepository) CountByUserID(ctx context.Context, userID int64) (int6
 func (r *orderRepository) GetByIDWithDetail(ctx context.Context, id uint) (*models.Order, error) {
 	var order models.Order
 	err := r.db.WithContext(ctx).
-		Preload("User").
-		Preload("Product").
-		Preload("OrderDetail").
 		First(&order, id).Error
 	if err != nil {
 		return nil, err
@@ -174,8 +166,6 @@ func (r *orderRepository) UpdateSyncInfo(ctx context.Context, id uint, syncAttem
 func (r *orderRepository) GetByProviderOrderID(ctx context.Context, providerOrderID string) (*models.Order, error) {
 	var order models.Order
 	err := r.db.WithContext(ctx).
-		Preload("User").
-		Preload("Product").
 		Where("provider_order_id = ?", providerOrderID).
 		First(&order).Error
 	if err != nil {
