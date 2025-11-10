@@ -8,7 +8,7 @@
   },
   "database": {
     "type": "mysql",
-    "dsn": "esim_shop:DcyFf453NzhbXBMK@tcp(127.0.0.1:3306)/esim_shop",
+    "dsn": "esim_shop:DcyFf453NzhbXBMK@tcp(127.0.0.1:3306)/esim_shop?parseTime=true",
     "max_connections": 10,
     "max_idle_conns": 5,
     "conn_max_life": "1h"
