@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
+	"tg-robot-sim/pkg/sdk/esim"
 	"tg-robot-sim/storage/models"
 	"tg-robot-sim/storage/repository"
 )
@@ -56,6 +58,7 @@ type orderService struct {
 	orderDetailRepo repository.OrderDetailRepository
 	productRepo     repository.ProductRepository
 	walletService   WalletService
+	esimService     EsimService
 }
 
 // NewOrderService 创建订单服务实例
@@ -64,12 +67,14 @@ func NewOrderService(
 	orderDetailRepo repository.OrderDetailRepository,
 	productRepo repository.ProductRepository,
 	walletService WalletService,
+	esimService EsimService,
 ) OrderService {
 	return &orderService{
 		orderRepo:       orderRepo,
 		orderDetailRepo: orderDetailRepo,
 		productRepo:     productRepo,
 		walletService:   walletService,
+		esimService:     esimService,
 	}
 }
 
@@ -258,6 +263,12 @@ func (s *orderService) CreateEsimOrder(ctx context.Context, req *CreateEsimOrder
 	if req.Quantity <= 0 {
 		return nil, errors.New("购买数量必须大于0")
 	}
+	if req.CustomerEmail == "" {
+		return nil, errors.New("客户邮箱不能为空")
+	}
+	if !isValidEmail(req.CustomerEmail) {
+		return nil, errors.New("邮箱格式不正确")
+	}
 
 	// 2. 获取产品信息
 	product, err := s.productRepo.GetByID(ctx, req.ProductID)
@@ -319,19 +330,23 @@ func (s *orderService) CreateEsimOrder(ctx context.Context, req *CreateEsimOrder
 		return nil, fmt.Errorf("冻结余额失败: %w", err)
 	}
 
-	// 7. TODO: 调用第三方 eSIM API 创建订单
-	// 这里暂时模拟，实际应该调用 eSIM SDK
-	// providerOrderID, err := s.createProviderOrder(ctx, order, product)
-	// if err != nil {
-	//     // 创建第三方订单失败，解冻余额
-	//     s.walletService.UnfreezeBalance(ctx, req.UserID, req.TotalAmount, order.OrderNo, "订单创建失败退款")
-	//     s.orderRepo.UpdateStatus(ctx, order.ID, models.OrderStatusFailed)
-	//     return nil, fmt.Errorf("创建第三方订单失败: %w", err)
-	// }
-	//
-	// // 更新订单的第三方订单ID
-	// order.ProviderOrderID = providerOrderID
-	// s.orderRepo.Update(ctx, order)
+	// 7. 调用第三方 eSIM API 创建订单
+	if s.esimService != nil {
+		providerOrderID, err := s.createProviderOrder(ctx, order, product, req.CustomerEmail)
+		if err != nil {
+			// 创建第三方订单失败，解冻余额
+			s.walletService.UnfreezeBalance(ctx, req.UserID, req.TotalAmount, order.OrderNo, "订单创建失败退款")
+			s.orderRepo.UpdateStatus(ctx, order.ID, models.OrderStatusFailed)
+			return nil, fmt.Errorf("创建第三方订单失败: %w", err)
+		}
+
+		// 更新订单的第三方订单ID
+		order.ProviderOrderID = providerOrderID
+		if err := s.orderRepo.Update(ctx, order); err != nil {
+			// 更新失败，记录日志但不影响订单创建
+			fmt.Printf("Warning: failed to update provider order ID: %v\n", err)
+		}
+	}
 
 	// 8. 返回订单响应
 	return &EsimOrderResponse{
@@ -502,4 +517,43 @@ func (s *orderService) saveOrderDetail(ctx context.Context, orderID uint, provid
 // GetUserOrdersWithFilters 根据筛选条件获取用户订单列表
 func (s *orderService) GetUserOrdersWithFilters(ctx context.Context, userID int64, status models.OrderStatus, limit, offset int) ([]*models.Order, int64, error) {
 	return s.orderRepo.GetByUserIDWithFilters(ctx, userID, status, limit, offset)
+}
+
+// isValidEmail 验证邮箱格式
+func isValidEmail(email string) bool {
+	// 简单的邮箱格式验证正则表达式
+	emailRegex := `^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`
+	matched, _ := regexp.MatchString(emailRegex, email)
+	return matched
+}
+
+// createProviderOrder 调用第三方 eSIM API 创建订单
+func (s *orderService) createProviderOrder(ctx context.Context, order *models.Order, product *models.Product, customerEmail string) (string, error) {
+	// 将 ThirdPartyID 转换为整数
+	var productID int
+	_, err := fmt.Sscanf(product.ThirdPartyID, "%d", &productID)
+	if err != nil {
+		return "", fmt.Errorf("无效的第三方产品ID: %w", err)
+	}
+
+	// 构建 eSIM 订单请求
+	createOrderReq := esim.CreateOrderRequest{
+		ProductID:     productID,
+		CustomerEmail: customerEmail,
+		Quantity:      order.Quantity,
+	}
+
+	// 调用 eSIM 服务创建订单
+	providerOrder, err := s.esimService.CreateOrder(ctx, createOrderReq)
+	if err != nil {
+		return "", fmt.Errorf("调用第三方 API 失败: %w", err)
+	}
+
+	// 检查订单创建是否成功
+	if !providerOrder.Success || providerOrder.Data.OrderNumber == "" {
+		return "", fmt.Errorf("第三方订单创建失败: %s", providerOrder.Message)
+	}
+
+	// 返回第三方订单号
+	return providerOrder.Data.OrderNumber, nil
 }

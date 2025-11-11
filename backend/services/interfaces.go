@@ -213,11 +213,12 @@ type WalletHistoryService interface {
 
 // CreateEsimOrderRequest 创建 eSIM 订单请求
 type CreateEsimOrderRequest struct {
-	UserID      int64  `json:"user_id" validate:"required"`
-	ProductID   int    `json:"product_id" validate:"required"`
-	Quantity    int    `json:"quantity" validate:"required,min=1"`
-	TotalAmount string `json:"total_amount" validate:"required"`
-	Remark      string `json:"remark,omitempty"`
+	UserID        int64  `json:"user_id" validate:"required"`
+	ProductID     int    `json:"product_id" validate:"required"`
+	Quantity      int    `json:"quantity" validate:"required,min=1"`
+	TotalAmount   string `json:"total_amount" validate:"required"`
+	CustomerEmail string `json:"customer_email" validate:"required,email"`
+	Remark        string `json:"remark,omitempty"`
 }
 
 // EsimOrderResponse eSIM 订单响应

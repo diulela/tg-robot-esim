@@ -15,6 +15,7 @@ export interface CreateEsimOrderRequest {
   productId: number
   quantity: number
   totalAmount: string
+  customerEmail: string
   remark?: string
 }
 

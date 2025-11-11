@@ -76,12 +76,27 @@ func main() {
 		blockchainService,
 		walletHistoryService,
 	)
+	// 初始化 eSIM 服务
+	var esimService services.EsimService
+	if cfg.EsimSDK.APIKey != "" && cfg.EsimSDK.APIKey != "${ESIM_API_KEY}" {
+		esimService = services.NewEsimService(
+			cfg.EsimSDK.APIKey,
+			cfg.EsimSDK.APISecret,
+			cfg.EsimSDK.BaseURL,
+			cfg.EsimSDK.TimezoneOffset,
+		)
+		appLogger.Info("eSIM service initialized")
+	} else {
+		appLogger.Warn("eSIM service not configured, orders will be created without provider integration")
+	}
+
 	productService := services.NewProductService(db.GetProductRepository())
 	orderService := services.NewOrderService(
 		db.GetOrderRepository(),
 		db.GetOrderDetailRepository(),
 		db.GetProductRepository(),
 		walletService,
+		esimService,
 	)
 
 	// 初始化 Telegram Bot

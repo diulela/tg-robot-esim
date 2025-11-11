@@ -58,6 +58,10 @@ func (h *MiniAppApiService) handleCreateEsimOrder(w http.ResponseWriter, r *http
 		h.sendError(w, http.StatusBadRequest, "Total amount is required", "")
 		return
 	}
+	if req.CustomerEmail == "" {
+		h.sendError(w, http.StatusBadRequest, "Customer email is required", "")
+		return
+	}
 
 	// 创建 eSIM 订单
 	order, err := h.orderService.CreateEsimOrder(ctx, &req)
@@ -72,6 +76,8 @@ func (h *MiniAppApiService) handleCreateEsimOrder(w http.ResponseWriter, r *http
 			h.sendErrorWithCode(w, http.StatusBadRequest, ErrCodeProductUnavailable, errMsg, "")
 		} else if strings.Contains(errMsg, "订单金额不匹配") {
 			h.sendErrorWithCode(w, http.StatusBadRequest, ErrCodeInvalidAmount, errMsg, "")
+		} else if strings.Contains(errMsg, "邮箱") {
+			h.sendErrorWithCode(w, http.StatusBadRequest, ErrCodeInvalidRequest, errMsg, "")
 		} else {
 			h.sendErrorWithCode(w, http.StatusInternalServerError, ErrCodeDatabaseError, "创建订单失败", errMsg)
 		}
