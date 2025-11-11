@@ -58,11 +58,6 @@ func main() {
 	}
 	defer db.Close()
 
-	// 自动迁移
-	if err := db.AutoMigrate(); err != nil {
-		log.Fatalf("数据库迁移失败: %v", err)
-	}
-
 	// 执行命令
 	ctx := context.Background()
 	switch *command {
