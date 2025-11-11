@@ -22,15 +22,22 @@ const (
 	cmdSyncProducts       = "sync-products"
 	cmdSyncProductDetails = "sync-product-details"
 	cmdListProducts       = "list-products"
+	cmdAddBalance         = "add-balance"
 	cmdHelp               = "help"
 )
 
 func main() {
 	// 定义命令行参数
-	command := flag.String("cmd", "", "命令: sync-products, list-products, sync-product-details, help")
+	command := flag.String("cmd", "", "命令: sync-products, list-products, sync-product-details, add-balance, help")
 	configPath := flag.String("config", "config/config.json", "配置文件路径")
 	productType := flag.String("type", "", "产品类型: local, regional, global (可选)")
 	limit := flag.Int("limit", 0, "限制数量 (0 表示全部)")
+
+	// 钱包余额相关参数
+	userID := flag.Int64("user-id", 0, "用户 Telegram ID")
+	amount := flag.String("amount", "", "金额 (例如: 100.00)")
+	reason := flag.String("reason", "管理员手动充值", "充值原因")
+
 	flag.Parse()
 
 	if *command == "" || *command == cmdHelp {
@@ -70,6 +77,10 @@ func main() {
 	case cmdListProducts:
 		if err := listProducts(ctx, db, *productType); err != nil {
 			log.Fatalf("列出产品失败: %v", err)
+		}
+	case cmdAddBalance:
+		if err := addBalance(ctx, db, *userID, *amount, *reason); err != nil {
+			log.Fatalf("增加余额失败: %v", err)
 		}
 	default:
 		fmt.Printf("未知命令: %s\n", *command)
@@ -411,6 +422,100 @@ func convertToDetailModel(productID int, apiDetail *esim.ProductDetail) (*models
 	}, nil
 }
 
+// addBalance 增加用户钱包余额
+func addBalance(ctx context.Context, db *data.Database, userID int64, amount string, reason string) error {
+	// 验证参数
+	if userID == 0 {
+		return fmt.Errorf("用户ID不能为空，请使用 -user-id 参数指定")
+	}
+	if amount == "" {
+		return fmt.Errorf("金额不能为空，请使用 -amount 参数指定")
+	}
+
+	fmt.Printf("开始增加用户余额...\n")
+	fmt.Printf("用户ID: %d\n", userID)
+	fmt.Printf("金额: %s USDT\n", amount)
+	fmt.Printf("原因: %s\n\n", reason)
+
+	// 获取仓储
+	userRepo := db.GetUserRepository()
+	walletRepo := db.GetWalletRepository()
+	walletHistoryRepo := db.GetWalletHistoryRepository()
+
+	// 1. 检查用户是否存在
+	user, err := userRepo.GetByTelegramID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("用户不存在 (Telegram ID: %d): %w", userID, err)
+	}
+	fmt.Printf("✓ 找到用户: %s (ID: %d)\n", user.Username, user.ID)
+
+	// 2. 获取用户钱包
+	wallet, err := walletRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("获取钱包失败: %w", err)
+	}
+	fmt.Printf("✓ 当前余额: %s USDT\n", wallet.Balance)
+
+	// 3. 计算新余额
+	balanceBefore := wallet.Balance
+	newBalance, err := addDecimal(balanceBefore, amount)
+	if err != nil {
+		return fmt.Errorf("计算余额失败: %w", err)
+	}
+
+	// 4. 更新钱包余额
+	wallet.Balance = newBalance
+	if err := walletRepo.Update(ctx, wallet); err != nil {
+		return fmt.Errorf("更新钱包失败: %w", err)
+	}
+	fmt.Printf("✓ 更新余额: %s USDT → %s USDT\n", balanceBefore, newBalance)
+
+	// 5. 创建钱包历史记录
+	history := &models.WalletHistory{
+		UserID:        userID,
+		Type:          models.WalletHistoryTypeRecharge,
+		Amount:        amount,
+		BalanceBefore: balanceBefore,
+		BalanceAfter:  newBalance,
+		Status:        models.WalletHistoryStatusCompleted,
+		RelatedID:     fmt.Sprintf("admin-recharge-%d", time.Now().Unix()),
+		TxHash:        "",
+		Description:   reason,
+	}
+
+	if err := walletHistoryRepo.Create(ctx, history); err != nil {
+		return fmt.Errorf("创建历史记录失败: %w", err)
+	}
+	fmt.Printf("✓ 创建历史记录 (ID: %d)\n", history.ID)
+
+	fmt.Printf("\n✅ 余额增加成功!\n")
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	fmt.Printf("用户: %s (Telegram ID: %d)\n", user.Username, userID)
+	fmt.Printf("充值金额: +%s USDT\n", amount)
+	fmt.Printf("余额变化: %s → %s USDT\n", balanceBefore, newBalance)
+	fmt.Printf("充值原因: %s\n", reason)
+	fmt.Printf("操作时间: %s\n", time.Now().Format("2006-01-02 15:04:05"))
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+
+	return nil
+}
+
+// addDecimal 将两个十进制字符串相加
+func addDecimal(a, b string) (string, error) {
+	// 简单实现：转换为 float64 计算
+	// 注意：在生产环境中应该使用 decimal 库以避免精度问题
+	var aFloat, bFloat float64
+	if _, err := fmt.Sscanf(a, "%f", &aFloat); err != nil {
+		return "", fmt.Errorf("解析金额 %s 失败: %w", a, err)
+	}
+	if _, err := fmt.Sscanf(b, "%f", &bFloat); err != nil {
+		return "", fmt.Errorf("解析金额 %s 失败: %w", b, err)
+	}
+
+	result := aFloat + bFloat
+	return fmt.Sprintf("%.4f", result), nil
+}
+
 // printHelp 打印帮助信息
 func printHelp() {
 	fmt.Println("eSIM 管理工具")
@@ -422,12 +527,16 @@ func printHelp() {
 	fmt.Println("  sync-products         从 API 同步产品数据到本地数据库")
 	fmt.Println("  sync-product-details  从 API 同步产品详情到详情表")
 	fmt.Println("  list-products         列出本地数据库中的产品")
+	fmt.Println("  add-balance           增加用户钱包余额")
 	fmt.Println("  help                  显示帮助信息")
 	fmt.Println()
 	fmt.Println("选项:")
-	fmt.Println("  -config <path>   配置文件路径 (默认: config/config.json)")
-	fmt.Println("  -type <type>     产品类型: local, regional, global")
-	fmt.Println("  -limit <n>       限制同步数量 (0 表示全部)")
+	fmt.Println("  -config <path>     配置文件路径 (默认: config/config.json)")
+	fmt.Println("  -type <type>       产品类型: local, regional, global")
+	fmt.Println("  -limit <n>         限制同步数量 (0 表示全部)")
+	fmt.Println("  -user-id <id>      用户 Telegram ID (用于 add-balance)")
+	fmt.Println("  -amount <amount>   充值金额 (用于 add-balance)")
+	fmt.Println("  -reason <text>     充值原因 (用于 add-balance，可选)")
 	fmt.Println()
 	fmt.Println("示例:")
 	fmt.Println("  # 同步所有产品")
@@ -444,4 +553,10 @@ func printHelp() {
 	fmt.Println()
 	fmt.Println("  # 列出指定类型的产品")
 	fmt.Println("  gm -cmd list-products -type global")
+	fmt.Println()
+	fmt.Println("  # 给用户增加余额")
+	fmt.Println("  gm -cmd add-balance -user-id 123456789 -amount 100.00")
+	fmt.Println()
+	fmt.Println("  # 给用户增加余额并指定原因")
+	fmt.Println("  gm -cmd add-balance -user-id 123456789 -amount 50.00 -reason \"活动奖励\"")
 }
