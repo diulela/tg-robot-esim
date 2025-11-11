@@ -168,7 +168,7 @@ export default {
       try {
         // 调用API创建充值订单
         const response = await api.wallet.createRechargeOrder({
-          amount: Number(amount.value)
+          amount: String(amount.value),
         })
 
         console.log('充值订单创建响应:', response)
