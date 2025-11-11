@@ -185,7 +185,8 @@ export class OrderApi {
       product_id: data.productId,
       quantity: data.quantity,
       total_amount: data.totalAmount,
-      remark: data.remark
+      remark: data.remark,
+      customer_email: data.customerEmail,
     })
     return this.transformEsimOrder(response)
   }
