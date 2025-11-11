@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 
 	"tg-robot-sim/pkg/sdk/esim"
@@ -532,7 +531,7 @@ func isValidEmail(email string) bool {
 func (s *orderService) createProviderOrder(ctx context.Context, order *models.Order, product *models.Product, customerEmail string) (string, error) {
 	// 将 ThirdPartyID 转换为整数
 	var productID int
-	_, err := fmt.Sscanf(strings.Replace(product.ThirdPartyID, "product-", "", 0), "%d", &productID)
+	_, err := fmt.Sscanf(product.ThirdPartyID, "%d", &productID)
 	if err != nil {
 		return "", fmt.Errorf("无效的第三方产品ID: %w", err)
 	}

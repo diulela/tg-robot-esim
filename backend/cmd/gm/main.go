@@ -225,7 +225,7 @@ func convertToModel(apiProduct *esim.Product) (*models.Product, error) {
 	// 使用第三方ID作为唯一标识
 	thirdPartyID := apiProduct.ThirdPartyID
 	if thirdPartyID == "" {
-		thirdPartyID = fmt.Sprintf("product-%d", apiProduct.ID)
+		thirdPartyID = strconv.FormatInt(int64(apiProduct.ID), 10)
 	}
 
 	// 计算价格
