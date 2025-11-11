@@ -51,16 +51,25 @@ type ErrorResponse struct {
 
 // 错误码定义
 const (
-	ErrCodeInvalidAmount   = 40001 // 充值金额低于最小限额
-	ErrCodeInvalidFormat   = 40002 // 充值金额格式错误
-	ErrCodeOrderNotFound   = 40003 // 订单不存在
-	ErrCodeOrderExpired    = 40004 // 订单已过期
-	ErrCodeOrderCompleted  = 40005 // 订单已完成，不能重复处理
-	ErrCodeWalletNotFound  = 40006 // 用户钱包不存在
+	// 客户端错误 (40xxx)
+	ErrCodeInvalidRequest      = 40000 // 无效的请求
+	ErrCodeInvalidAmount       = 40001 // 充值金额低于最小限额或余额不足
+	ErrCodeInvalidFormat       = 40002 // 充值金额格式错误
+	ErrCodeOrderNotFound       = 40003 // 订单不存在
+	ErrCodeOrderExpired        = 40004 // 订单已过期
+	ErrCodeOrderCompleted      = 40005 // 订单已完成，不能重复处理
+	ErrCodeWalletNotFound      = 40006 // 用户钱包不存在
+	ErrCodeProductNotFound     = 40007 // 产品不存在
+	ErrCodeProductUnavailable  = 40008 // 产品暂不可用
+	ErrCodeUnauthorized        = 40100 // 未授权访问
+	ErrCodeInsufficientBalance = 40009 // 余额不足（用于订单创建）
+
+	// 服务器错误 (50xxx)
 	ErrCodeGenerateAmount  = 50001 // 生成精确金额失败
 	ErrCodeBlockchainQuery = 50002 // 区块链查询失败
 	ErrCodeDatabaseError   = 50003 // 数据库操作失败
 	ErrCodeBalanceUpdate   = 50004 // 余额更新失败
+	ErrCodeInternalError   = 50000 // 内部服务器错误
 )
 
 // sendJSON 发送 JSON 响应

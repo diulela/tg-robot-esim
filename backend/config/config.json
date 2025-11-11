@@ -48,5 +48,10 @@
     "required_confirmations": 19,
     "monitor_interval_seconds": 30,
     "deposit_address": "TV22SEQDCaJB6KCbPNDR8AmELTgwjJKnw1"
+  },
+  "api": {
+    "legacy_api_enabled": true,
+    "deprecated_since": "2025-01-15",
+    "sunset_date": "2025-06-01"
   }
 }

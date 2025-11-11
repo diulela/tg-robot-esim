@@ -2,11 +2,21 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
+	"time"
 )
 
 // handlePurchase 处理购买请求
+// @deprecated 此接口已废弃，请使用 POST /api/miniapp/esim/orders
+// 废弃日期: 2025-01-15
+// 计划下线日期: 2025-06-01
 func (h *MiniAppApiService) handlePurchase(w http.ResponseWriter, r *http.Request) {
+	// 添加废弃标记响应头
+	w.Header().Set("X-API-Deprecated", "true")
+	w.Header().Set("X-API-Deprecated-Message", "此接口已废弃，请使用 POST /api/miniapp/esim/orders")
+	w.Header().Set("X-API-Deprecated-Since", "2025-01-15")
+	w.Header().Set("X-API-Sunset-Date", "2025-06-01")
 	if r.Method != http.MethodPost {
 		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed", "")
 		return
@@ -20,6 +30,9 @@ func (h *MiniAppApiService) handlePurchase(w http.ResponseWriter, r *http.Reques
 		h.sendError(w, http.StatusUnauthorized, "Unauthorized", "Invalid user ID")
 		return
 	}
+
+	// 记录旧接口调用日志
+	log.Printf("[DEPRECATED API] /api/miniapp/purchase called by user_id=%d at %s", userID, time.Now().Format(time.RFC3339))
 
 	// 解析请求体
 	var req struct {
@@ -50,7 +63,16 @@ func (h *MiniAppApiService) handlePurchase(w http.ResponseWriter, r *http.Reques
 }
 
 // handleOrders 处理订单列表请求
+// @deprecated 此接口已废弃，请使用 GET /api/miniapp/esim/orders
+// 废弃日期: 2025-01-15
+// 计划下线日期: 2025-06-01
 func (h *MiniAppApiService) handleOrders(w http.ResponseWriter, r *http.Request) {
+	// 添加废弃标记响应头
+	w.Header().Set("X-API-Deprecated", "true")
+	w.Header().Set("X-API-Deprecated-Message", "此接口已废弃，请使用 GET /api/miniapp/esim/orders")
+	w.Header().Set("X-API-Deprecated-Since", "2025-01-15")
+	w.Header().Set("X-API-Sunset-Date", "2025-06-01")
+
 	if r.Method != http.MethodGet {
 		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed", "")
 		return
@@ -64,6 +86,9 @@ func (h *MiniAppApiService) handleOrders(w http.ResponseWriter, r *http.Request)
 		h.sendError(w, http.StatusUnauthorized, "Unauthorized", "Invalid user ID")
 		return
 	}
+
+	// 记录旧接口调用日志
+	log.Printf("[DEPRECATED API] /api/miniapp/orders called by user_id=%d at %s", userID, time.Now().Format(time.RFC3339))
 
 	// 获取查询参数
 	limit := h.parseIntParam(r, "limit", 20)

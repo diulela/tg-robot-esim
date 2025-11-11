@@ -1,6 +1,18 @@
 // 订单相关 API
 import { apiClient } from './client'
-import type { Order, PaginatedResponse, OrderQueryParams, CreateOrderRequest } from '@/types'
+import type {
+  Order,
+  PaginatedResponse,
+  OrderQueryParams,
+  CreateOrderRequest
+} from '@/types'
+import type {
+  EsimOrder,
+  EsimOrderDetail,
+  CreateEsimOrderRequest,
+  OrderQueryParams as EsimOrderQueryParams,
+  EsimOrderPaginatedResponse
+} from '@/types/esim-order'
 import { OrderStatus } from '@/types'
 
 export class OrderApi {
@@ -90,6 +102,7 @@ export class OrderApi {
   }
 
   // 创建订单 (购买产品)
+  // @deprecated 请使用 createEsimOrder 方法
   async createOrder(data: CreateOrderRequest): Promise<Order> {
     const result = await apiClient.post('/miniapp/purchase', data)
     return this.transformOrder(result)
@@ -109,6 +122,90 @@ export class OrderApi {
   // 重新支付订单
   async retryPayment(id: string): Promise<{ paymentUrl: string }> {
     return apiClient.post(`/miniapp/orders/${id}/retry-payment`)
+  }
+
+  // ========== 新的 eSIM 订单 API 方法 ==========
+
+  // 转换后端 eSIM 订单数据为前端格式
+  private transformEsimOrder(backendData: any): EsimOrder {
+    return {
+      id: String(backendData.order_id),
+      orderNo: backendData.order_no,
+      productId: backendData.product_id,
+      productName: backendData.product_name,
+      quantity: backendData.quantity,
+      unitPrice: backendData.unit_price,
+      totalAmount: backendData.total_amount,
+      status: backendData.status,
+      providerOrderId: backendData.provider_order_id,
+      createdAt: backendData.created_at,
+      updatedAt: backendData.updated_at,
+      completedAt: backendData.completed_at
+    }
+  }
+
+  // 转换后端 eSIM 订单详情数据为前端格式
+  private transformEsimOrderDetail(backendData: any): EsimOrderDetail {
+    return {
+      id: String(backendData.order_id),
+      orderNo: backendData.order_no,
+      userId: backendData.user_id,
+      productId: backendData.product_id,
+      productName: backendData.product_name,
+      quantity: backendData.quantity,
+      unitPrice: backendData.unit_price,
+      totalAmount: backendData.total_amount,
+      status: backendData.status,
+      providerOrderId: backendData.provider_order_id,
+      orderItems: backendData.order_items || [],
+      esims: backendData.esims || [],
+      createdAt: backendData.created_at,
+      updatedAt: backendData.updated_at,
+      completedAt: backendData.completed_at
+    }
+  }
+
+  // 转换 eSIM 订单列表响应
+  private transformEsimOrderList(backendData: any): EsimOrderPaginatedResponse<EsimOrder> {
+    const { orders = [], total = 0, limit = 20, offset = 0 } = backendData
+
+    const transformedOrders = orders.map((o: any) => this.transformEsimOrder(o))
+
+    return {
+      items: transformedOrders,
+      total,
+      limit,
+      offset
+    }
+  }
+
+  // 创建 eSIM 订单
+  async createEsimOrder(data: CreateEsimOrderRequest): Promise<EsimOrder> {
+    const response = await apiClient.post('/miniapp/esim/orders', {
+      product_id: data.productId,
+      quantity: data.quantity,
+      total_amount: data.totalAmount,
+      remark: data.remark
+    })
+    return this.transformEsimOrder(response)
+  }
+
+  // 获取 eSIM 订单列表
+  async getEsimOrders(params?: EsimOrderQueryParams): Promise<EsimOrderPaginatedResponse<EsimOrder>> {
+    const queryParams: Record<string, string | number | undefined> = {}
+    const p = params as any
+    if (p?.status) queryParams['status'] = p.status
+    if (p?.limit !== undefined) queryParams['limit'] = p.limit
+    if (p?.offset !== undefined) queryParams['offset'] = p.offset
+
+    const response = await apiClient.get('/miniapp/esim/orders', queryParams)
+    return this.transformEsimOrderList(response)
+  }
+
+  // 获取 eSIM 订单详情
+  async getEsimOrderDetail(orderId: string): Promise<EsimOrderDetail> {
+    const response = await apiClient.get(`/miniapp/esim/orders/${orderId}`)
+    return this.transformEsimOrderDetail(response)
   }
 }
 

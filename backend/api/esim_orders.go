@@ -65,11 +65,13 @@ func (h *MiniAppApiService) handleCreateEsimOrder(w http.ResponseWriter, r *http
 		// 根据错误类型返回不同的错误码
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "余额不足") {
-			h.sendErrorWithCode(w, http.StatusBadRequest, ErrCodeInvalidAmount, errMsg, "")
-		} else if strings.Contains(errMsg, "产品不存在") || strings.Contains(errMsg, "产品暂不可用") {
-			h.sendError(w, http.StatusBadRequest, errMsg, "")
+			h.sendErrorWithCode(w, http.StatusBadRequest, ErrCodeInsufficientBalance, errMsg, "")
+		} else if strings.Contains(errMsg, "产品不存在") {
+			h.sendErrorWithCode(w, http.StatusBadRequest, ErrCodeProductNotFound, errMsg, "")
+		} else if strings.Contains(errMsg, "产品暂不可用") {
+			h.sendErrorWithCode(w, http.StatusBadRequest, ErrCodeProductUnavailable, errMsg, "")
 		} else if strings.Contains(errMsg, "订单金额不匹配") {
-			h.sendError(w, http.StatusBadRequest, errMsg, "")
+			h.sendErrorWithCode(w, http.StatusBadRequest, ErrCodeInvalidAmount, errMsg, "")
 		} else {
 			h.sendErrorWithCode(w, http.StatusInternalServerError, ErrCodeDatabaseError, "创建订单失败", errMsg)
 		}
@@ -95,27 +97,20 @@ func (h *MiniAppApiService) handleGetEsimOrders(w http.ResponseWriter, r *http.R
 	// 获取查询参数
 	limit := h.parseIntParam(r, "limit", 20)
 	offset := h.parseIntParam(r, "offset", 0)
-	status := r.URL.Query().Get("status")
+	statusParam := r.URL.Query().Get("status")
 
 	// 构建筛选条件
-	filters := &services.OrderFilters{
-		Limit:  limit,
-		Offset: offset,
+	var statusFilter models.OrderStatus
+	if statusParam != "" {
+		statusFilter = models.OrderStatus(statusParam)
 	}
 
-	if status != "" {
-		filters.Status = models.OrderStatus(status)
-	}
-
-	// 获取订单列表
-	orders, err := h.orderService.GetUserOrders(ctx, userID, limit, offset)
+	// 获取订单列表（使用带筛选的方法）
+	orders, total, err := h.orderService.GetUserOrdersWithFilters(ctx, userID, statusFilter, limit, offset)
 	if err != nil {
 		h.sendErrorWithCode(w, http.StatusInternalServerError, ErrCodeDatabaseError, "获取订单列表失败", err.Error())
 		return
 	}
-
-	// 获取总数（简化实现，实际应该从仓库获取）
-	total := int64(len(orders))
 
 	// 转换订单数据格式
 	var orderList []map[string]interface{}

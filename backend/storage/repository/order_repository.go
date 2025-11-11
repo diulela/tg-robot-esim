@@ -35,6 +35,9 @@ type OrderRepository interface {
 
 	// BatchUpdateStatus 批量更新订单状态
 	BatchUpdateStatus(ctx context.Context, orderIDs []uint, status models.OrderStatus) error
+
+	// GetByUserIDWithFilters 根据用户ID和筛选条件获取订单列表
+	GetByUserIDWithFilters(ctx context.Context, userID int64, status models.OrderStatus, limit, offset int) ([]*models.Order, int64, error)
 }
 
 // orderRepository 订单仓储实现
@@ -195,4 +198,34 @@ func (r *orderRepository) BatchUpdateStatus(ctx context.Context, orderIDs []uint
 	return r.db.WithContext(ctx).Model(&models.Order{}).
 		Where("id IN ?", orderIDs).
 		Updates(updates).Error
+}
+
+// GetByUserIDWithFilters 根据用户ID和筛选条件获取订单列表
+func (r *orderRepository) GetByUserIDWithFilters(ctx context.Context, userID int64, status models.OrderStatus, limit, offset int) ([]*models.Order, int64, error) {
+	var orders []*models.Order
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&models.Order{}).Where("user_id = ?", userID)
+
+	// 如果指定了状态筛选
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	// 获取总数
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 获取订单列表
+	query = query.Order("created_at DESC")
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if offset > 0 {
+		query = query.Offset(offset)
+	}
+
+	err := query.Find(&orders).Error
+	return orders, total, err
 }

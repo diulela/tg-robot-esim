@@ -37,6 +37,9 @@ type OrderService interface {
 
 	// UpdateOrderSyncInfo 更新订单同步信息
 	UpdateOrderSyncInfo(ctx context.Context, orderID uint, syncAttempts int, nextSyncAt *time.Time) error
+
+	// GetUserOrdersWithFilters 根据筛选条件获取用户订单列表
+	GetUserOrdersWithFilters(ctx context.Context, userID int64, status models.OrderStatus, limit, offset int) ([]*models.Order, int64, error)
 }
 
 // OrderStats 订单统计信息
@@ -494,4 +497,9 @@ func (s *orderService) saveOrderDetail(ctx context.Context, orderID uint, provid
 	}
 
 	return s.orderDetailRepo.CreateOrUpdate(ctx, orderDetail)
+}
+
+// GetUserOrdersWithFilters 根据筛选条件获取用户订单列表
+func (s *orderService) GetUserOrdersWithFilters(ctx context.Context, userID int64, status models.OrderStatus, limit, offset int) ([]*models.Order, int64, error) {
+	return s.orderRepo.GetByUserIDWithFilters(ctx, userID, status, limit, offset)
 }

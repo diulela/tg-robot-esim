@@ -4,6 +4,7 @@
 export * from './api'
 export * from './telegram'
 export * from './components'
+export * from './esim-order'
 
 // 通用工具类型
 export type Nullable<T> = T | null
