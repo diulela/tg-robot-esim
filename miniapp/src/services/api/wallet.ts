@@ -82,7 +82,7 @@ export class WalletApi {
   }
 
   // 创建 USDT 充值订单
-  async createRechargeOrder(data: { amount: string }): Promise<{
+  async createRechargeOrder(data: { amount: number }): Promise<{
     order_no: string
     amount: string
     exact_amount: string
