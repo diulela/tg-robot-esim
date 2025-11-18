@@ -332,7 +332,7 @@ func (s *orderService) CreateEsimOrder(ctx context.Context, req *CreateEsimOrder
 
 	// 7. 调用第三方 eSIM API 创建订单
 	if s.esimService != nil {
-		providerOrderID, err := s.createProviderOrder(ctx, order, product, req.CustomerEmail)
+		providerOrder, err := s.createProviderOrder(ctx, order, product, req.CustomerEmail)
 		if err != nil {
 			// 创建第三方订单失败，解冻余额
 			s.walletService.UnfreezeBalance(ctx, req.UserID, req.TotalAmount, order.OrderNo, "订单创建失败退款")
@@ -341,7 +341,8 @@ func (s *orderService) CreateEsimOrder(ctx context.Context, req *CreateEsimOrder
 		}
 
 		// 更新订单的第三方订单ID
-		order.ProviderOrderID = providerOrderID
+		order.ProviderOrderID = fmt.Sprint(providerOrder.OrderID)
+		order.ProviderOrderNo = providerOrder.OrderNumber
 		if err := s.orderRepo.Update(ctx, order); err != nil {
 			// 更新失败，记录日志但不影响订单创建
 			fmt.Printf("Warning: failed to update provider order ID: %v\n", err)
@@ -528,12 +529,12 @@ func isValidEmail(email string) bool {
 }
 
 // createProviderOrder 调用第三方 eSIM API 创建订单
-func (s *orderService) createProviderOrder(ctx context.Context, order *models.Order, product *models.Product, customerEmail string) (string, error) {
+func (s *orderService) createProviderOrder(ctx context.Context, order *models.Order, product *models.Product, customerEmail string) (*esim.CreateOrderData, error) {
 	// 将 ThirdPartyID 转换为整数
 	var productID int
 	_, err := fmt.Sscanf(product.ThirdPartyID, "%d", &productID)
 	if err != nil {
-		return "", fmt.Errorf("无效的第三方产品ID: %w", err)
+		return nil, fmt.Errorf("无效的第三方产品ID: %w", err)
 	}
 
 	// 构建 eSIM 订单请求
@@ -546,7 +547,7 @@ func (s *orderService) createProviderOrder(ctx context.Context, order *models.Or
 	// 调用 eSIM 服务创建订单
 	providerOrder, err := s.esimService.CreateOrder(ctx, createOrderReq)
 	if err != nil {
-		return "", fmt.Errorf("调用第三方 API 失败: %w", err)
+		return nil, fmt.Errorf("调用第三方 API 失败: %w", err)
 	}
 
 	// 检查订单创建是否成功
@@ -558,14 +559,14 @@ func (s *orderService) createProviderOrder(ctx context.Context, order *models.Or
 		} else if len(providerOrder.Message) > 0 {
 			errorMsg = string(providerOrder.Message)
 		}
-		return "", fmt.Errorf("第三方订单创建失败: %s", errorMsg)
+		return nil, fmt.Errorf("第三方订单创建失败: %s", errorMsg)
 	}
 
 	// 检查解析后的订单数据
 	if providerOrder.OrderData == nil || providerOrder.OrderData.OrderNumber == "" {
-		return "", fmt.Errorf("第三方订单创建失败: 未返回订单号")
+		return nil, fmt.Errorf("第三方订单创建失败: 未返回订单号")
 	}
 
 	// 返回第三方订单号
-	return providerOrder.OrderData.OrderNumber, nil
+	return providerOrder.OrderData, nil
 }
