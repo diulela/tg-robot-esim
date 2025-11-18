@@ -1,393 +1,477 @@
 <template>
-  <PageWrapper
-    :loading="isLoading && !hasOrders"
-    loading-text="正在加载订单..."
-    :error="error"
-    @retry="handleRetry"
-    class="order-page"
-  >
-    <!-- 页面标题和统计 -->
+  <div class="order-page">
+    <!-- 页面标题 -->
     <div class="page-header">
-      <h2 class="page-title">我的订单</h2>
-      <div v-if="hasOrders" class="order-stats">
-        <span class="stats-text">
-          共 {{ totalOrders }} 个订单，总消费 {{ formatCurrency(totalSpent) }}
-        </span>
-      </div>
-    </div>
-
-    <!-- 订单筛选 -->
-    <div class="filter-section">
-      <v-chip-group
-        v-model="selectedStatus"
-        color="primary"
-        variant="tonal"
-        class="status-chips"
-        @update:model-value="handleStatusFilter"
-      >
-        <v-chip value="" size="small">全部</v-chip>
-        <v-chip value="pending" size="small">
-          <v-icon start size="14">mdi-clock-outline</v-icon>
-          待支付
-        </v-chip>
-        <v-chip value="paid" size="small">
-          <v-icon start size="14">mdi-credit-card-check</v-icon>
-          已支付
-        </v-chip>
-        <v-chip value="completed" size="small">
-          <v-icon start size="14">mdi-check-circle</v-icon>
-          已完成
-        </v-chip>
-        <v-chip value="cancelled" size="small">
-          <v-icon start size="14">mdi-close-circle</v-icon>
-          已取消
-        </v-chip>
-      </v-chip-group>
+      <h1 class="page-title">我的订单</h1>
     </div>
 
     <!-- 订单列表 -->
-    <div class="orders-content">
-      <!-- 下拉刷新提示 -->
-      <div v-if="refreshing" class="refresh-indicator">
-        <v-progress-circular
-          indeterminate
-          size="24"
-          width="2"
-          color="primary"
-        />
-        <span class="refresh-text">正在刷新...</span>
+    <div class="orders-container">
+      <!-- 加载状态 -->
+      <div v-if="isLoading && orders.length === 0" class="loading-state">
+        <v-progress-circular indeterminate color="primary" size="48" />
+        <p class="loading-text">正在加载订单...</p>
       </div>
 
       <!-- 订单卡片列表 -->
-      <div v-if="displayedOrders.length > 0" class="orders-list">
-        <OrderCard
-          v-for="order in displayedOrders"
+      <div v-else-if="orders.length > 0" class="orders-list">
+        <div
+          v-for="order in orders"
           :key="order.id"
-          :order="order"
-          :show-actions="true"
-          @click="navigateToOrderDetail"
-          @view-details="navigateToOrderDetail"
-          @copy-order-number="handleCopyOrderNumber"
-        />
-      </div>
-
-      <!-- 加载更多 -->
-      <div v-if="canLoadMore" class="load-more-section">
-        <v-btn
-          :loading="loadingMore"
-          variant="outlined"
-          color="primary"
-          block
-          @click="loadMore"
+          class="order-card"
+          @click="navigateToDetail(order.id)"
         >
-          <v-icon start>mdi-refresh</v-icon>
-          加载更多
-        </v-btn>
+          <!-- 产品信息区 -->
+          <div class="product-section">
+            <div class="product-info">
+              <h3 class="product-name">{{ order.productName }}</h3>
+              <div class="product-meta">
+                <span class="quantity">× {{ order.quantity }}</span>
+                <span class="data-size">
+                  <v-icon size="14">mdi-database-outline</v-icon>
+                  {{ extractDataSize(order.productName) }}
+                </span>
+                <span class="valid-days">
+                  <v-icon size="14">mdi-clock-outline</v-icon>
+                  {{ extractValidDays(order.productName) }}
+                </span>
+              </div>
+            </div>
+            <div class="product-price">${{ order.unitPrice }}</div>
+          </div>
+
+          <!-- 订单详情区 -->
+          <div class="order-details">
+            <div class="detail-row">
+              <span class="detail-label">订单编号</span>
+              <span class="detail-value">{{ order.orderNo }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">下单时间</span>
+              <span class="detail-value">{{ formatDateTime(order.createdAt) }}</span>
+              <span class="actual-payment">实付：<span class="amount">${{ order.totalAmount }}</span></span>
+            </div>
+            <div v-if="order.providerOrderId" class="detail-row">
+              <span class="detail-label">ICCID</span>
+              <span class="detail-value iccid">{{ formatICCID(order.providerOrderId) }}</span>
+            </div>
+          </div>
+
+          <!-- 状态和操作区 -->
+          <div class="order-footer">
+            <div class="status-badge" :class="`status-${order.status}`">
+              {{ getStatusText(order.status) }}
+            </div>
+            <v-btn
+              variant="outlined"
+              color="primary"
+              size="small"
+              @click.stop="navigateToDetail(order.id)"
+            >
+              查看详情
+            </v-btn>
+          </div>
+        </div>
       </div>
 
       <!-- 空状态 -->
-      <div v-else-if="!hasOrders && !isLoading" class="empty-orders">
-        <v-icon size="64" color="grey-lighten-1">mdi-receipt-outline</v-icon>
-        <h4 class="empty-title">暂无订单</h4>
+      <div v-else-if="!isLoading" class="empty-state">
+        <v-icon size="80" color="grey-lighten-2">mdi-receipt-text-outline</v-icon>
+        <h3 class="empty-title">暂无订单</h3>
         <p class="empty-subtitle">您还没有任何订单记录</p>
         <v-btn
           color="primary"
           variant="elevated"
+          size="large"
+          class="mt-6"
           @click="navigateToProducts"
-          class="mt-4"
         >
           <v-icon start>mdi-shopping</v-icon>
           开始购买
         </v-btn>
       </div>
 
-      <!-- 筛选无结果 -->
-      <div v-else-if="selectedStatus && displayedOrders.length === 0 && !isLoading" class="no-filtered-results">
-        <v-icon size="48" color="grey-lighten-1">mdi-filter-off</v-icon>
-        <h4 class="no-results-title">没有找到相关订单</h4>
-        <p class="no-results-subtitle">
-          当前筛选条件下没有订单，试试其他状态
-        </p>
+      <!-- 加载更多 -->
+      <div v-if="hasMore && orders.length > 0" class="load-more">
         <v-btn
+          :loading="isLoadingMore"
           variant="outlined"
           color="primary"
-          @click="clearFilter"
-          class="mt-4"
+          block
+          @click="loadMore"
         >
-          查看全部订单
+          加载更多
         </v-btn>
       </div>
-    </div>
 
-    <!-- 浮动操作按钮 -->
-    <v-fab
-      icon="mdi-refresh"
-      color="primary"
-      size="small"
-      location="bottom end"
-      class="refresh-fab"
-      @click="refreshOrders"
-      :loading="refreshing"
-    />
-  </PageWrapper>
+      <!-- 错误提示 -->
+      <v-snackbar
+        v-model="showError"
+        :timeout="3000"
+        color="error"
+        location="top"
+      >
+        {{ errorMessage }}
+        <template #actions>
+          <v-btn variant="text" @click="showError = false">关闭</v-btn>
+        </template>
+      </v-snackbar>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useAppStore } from '@/stores/app'
-import { useOrdersStore } from '@/stores/orders'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { orderApi } from '@/services/api/order'
 import { telegramService } from '@/services/telegram'
-import type { OrderStatus } from '@/types'
+import type { EsimOrder } from '@/types/esim-order'
 
-import PageWrapper from '@/components/layout/PageWrapper.vue'
-import OrderCard from '@/components/business/OrderCard.vue'
-
-// 组合式 API
-const route = useRoute()
+// 路由
 const router = useRouter()
-const appStore = useAppStore()
-const ordersStore = useOrdersStore()
 
 // 响应式状态
+const orders = ref<EsimOrder[]>([])
 const isLoading = ref(false)
-const error = ref<string | null>(null)
-const refreshing = ref(false)
-const loadingMore = ref(false)
-const selectedStatus = ref<string>('')
+const isLoadingMore = ref(false)
+const showError = ref(false)
+const errorMessage = ref('')
+const currentOffset = ref(0)
+const pageSize = 20
+const totalOrders = ref(0)
 
 // 计算属性
-const hasOrders = computed(() => ordersStore.hasOrders)
-const totalOrders = computed(() => ordersStore.totalOrders)
-const totalSpent = computed(() => ordersStore.totalSpent)
-const canLoadMore = computed(() => ordersStore.canLoadMore)
-
-const displayedOrders = computed(() => {
-  if (!selectedStatus.value) {
-    return ordersStore.orders
-  }
-  
-  return ordersStore.ordersByStatus[selectedStatus.value as OrderStatus] || []
+const hasMore = computed(() => {
+  return orders.value.length < totalOrders.value
 })
 
 // 方法
 const loadOrders = async (append = false) => {
-  if (!append) {
-    isLoading.value = true
+  if (append) {
+    isLoadingMore.value = true
   } else {
-    loadingMore.value = true
+    isLoading.value = true
+    currentOffset.value = 0
   }
-  
-  error.value = null
 
   try {
-    const filters = selectedStatus.value 
-      ? { status: selectedStatus.value as OrderStatus }
-      : {}
-    
-    await ordersStore.fetchOrders(filters, append)
-    console.log('[OrderPage] 订单数据加载成功')
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : '加载订单失败'
-    error.value = errorMessage
-    console.error('[OrderPage] 加载订单失败:', err)
+    const response = await orderApi.getEsimOrders({
+      limit: pageSize,
+      offset: currentOffset.value
+    })
+
+    if (append) {
+      orders.value = [...orders.value, ...response.items]
+    } else {
+      orders.value = response.items
+    }
+
+    totalOrders.value = response.total
+    currentOffset.value += response.items.length
+
+    console.log('[OrderPage] 订单加载成功:', response.items.length, '个订单')
+  } catch (error) {
+    console.error('[OrderPage] 加载订单失败:', error)
+    errorMessage.value = '加载订单失败，请重试'
+    showError.value = true
   } finally {
     isLoading.value = false
-    loadingMore.value = false
-  }
-}
-
-const refreshOrders = async () => {
-  if (refreshing.value) return
-
-  refreshing.value = true
-  
-  try {
-    await ordersStore.refresh()
-    
-    // 触觉反馈
-    telegramService.impactFeedback('light')
-    
-    appStore.showNotification({
-      type: 'success',
-      message: '订单列表已刷新',
-      duration: 2000
-    })
-  } catch (err) {
-    console.error('[OrderPage] 刷新订单失败:', err)
-    
-    appStore.showNotification({
-      type: 'error',
-      message: '刷新失败，请重试',
-      duration: 3000
-    })
-  } finally {
-    refreshing.value = false
+    isLoadingMore.value = false
   }
 }
 
 const loadMore = async () => {
-  if (loadingMore.value || !canLoadMore.value) return
-  
+  if (isLoadingMore.value || !hasMore.value) return
   await loadOrders(true)
 }
 
-const handleRetry = () => {
-  loadOrders()
-}
-
-const handleStatusFilter = (status: string | undefined) => {
-  selectedStatus.value = status || ''
-  
-  // 触觉反馈
-  telegramService.selectionFeedback()
-  
-  // 重新加载订单
-  loadOrders()
-}
-
-const clearFilter = () => {
-  selectedStatus.value = ''
-  loadOrders()
-}
-
-const navigateToOrderDetail = (orderId: string) => {
+const navigateToDetail = (orderId: string) => {
   router.push({ name: 'OrderDetail', params: { id: orderId } })
-  telegramService.selectionFeedback()
+  telegramService.impactFeedback('light')
 }
 
 const navigateToProducts = () => {
   router.push({ name: 'Products' })
-  telegramService.selectionFeedback()
+  telegramService.impactFeedback('medium')
 }
 
-const handleCopyOrderNumber = (orderNumber: string) => {
-  console.log('[OrderPage] 复制订单号:', orderNumber)
+// 格式化日期时间
+const formatDateTime = (dateStr: string): string => {
+  const date = new Date(dateStr)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
 }
 
-const formatCurrency = (amount: number): string => {
-  return `$${amount.toFixed(2)}`
+// 格式化 ICCID（显示部分）
+const formatICCID = (iccid: string): string => {
+  if (!iccid) return '未分配'
+  // 如果太长，只显示前面部分
+  return iccid.length > 20 ? iccid.substring(0, 20) : iccid
 }
 
-// 监听路由查询参数
-watch(
-  () => route.query.status,
-  (newStatus) => {
-    if (newStatus && newStatus !== selectedStatus.value) {
-      selectedStatus.value = newStatus as string
-      loadOrders()
-    }
-  },
-  { immediate: true }
-)
+// 从产品名称提取流量大小
+const extractDataSize = (productName: string): string => {
+  const match = productName.match(/(\d+)(MB|GB)/i)
+  return match ? match[0] : '200MB'
+}
+
+// 从产品名称提取有效天数
+const extractValidDays = (productName: string): string => {
+  const match = productName.match(/(\d+)天/)
+  return match ? match[0] : '30天'
+}
+
+// 获取状态文本
+const getStatusText = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    pending: '待支付',
+    processing: '处理中',
+    paid: '已付款',
+    completed: '已完成',
+    failed: '失败',
+    cancelled: '已取消'
+  }
+  return statusMap[status] || status
+}
 
 // 生命周期
 onMounted(async () => {
-  console.log('[OrderPage] 组件挂载')
-  
-  // 页面初始化完成
-  
-  // 从路由查询参数获取初始状态
-  const initialStatus = route.query.status as string
-  if (initialStatus) {
-    selectedStatus.value = initialStatus
-  }
-  
-  // 加载订单数据
+  console.log('[OrderPage] 页面挂载')
   await loadOrders()
 })
 </script>
 
 <style scoped lang="scss">
 .order-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding-bottom: 80px;
+
   .page-header {
+    padding: 20px 16px;
     text-align: center;
-    margin-bottom: 24px;
-    
+
     .page-title {
       font-size: 1.5rem;
       font-weight: 600;
-      color: rgb(var(--v-theme-on-surface));
-      margin: 0 0 8px 0;
-    }
-    
-    .order-stats {
-      .stats-text {
-        font-size: 0.875rem;
-        color: rgba(var(--v-theme-on-surface), 0.7);
-      }
+      color: white;
+      margin: 0;
     }
   }
-  
-  .filter-section {
-    margin-bottom: 24px;
-    
-    .status-chips {
-      justify-content: flex-start;
-      
-      .v-chip {
-        margin-right: 8px;
-        margin-bottom: 8px;
-      }
-    }
-  }
-  
-  .orders-content {
-    .refresh-indicator {
+
+  .orders-container {
+    padding: 0 16px 16px;
+
+    .loading-state {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
-      
-      .refresh-text {
+      padding: 80px 20px;
+      gap: 16px;
+
+      .loading-text {
+        color: white;
         font-size: 0.875rem;
-        color: rgba(var(--v-theme-on-surface), 0.7);
+        margin: 0;
       }
     }
-    
+
     .orders-list {
       display: flex;
       flex-direction: column;
       gap: 12px;
+
+      .order-card {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          transform: translateY(-2px);
+        }
+
+        &:active {
+          transform: translateY(0);
+        }
+
+        .product-section {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 16px;
+          padding-bottom: 12px;
+          border-bottom: 1px solid #f0f0f0;
+
+          .product-info {
+            flex: 1;
+
+            .product-name {
+              font-size: 0.9375rem;
+              font-weight: 500;
+              color: #333;
+              margin: 0 0 8px 0;
+              line-height: 1.4;
+            }
+
+            .product-meta {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              font-size: 0.8125rem;
+              color: #666;
+
+              .quantity {
+                color: #999;
+              }
+
+              .data-size,
+              .valid-days {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+
+                .v-icon {
+                  color: #999;
+                }
+              }
+            }
+          }
+
+          .product-price {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #667eea;
+            white-space: nowrap;
+            margin-left: 12px;
+          }
+        }
+
+        .order-details {
+          margin-bottom: 16px;
+
+          .detail-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 0.8125rem;
+
+            .detail-label {
+              color: #999;
+              min-width: 70px;
+            }
+
+            .detail-value {
+              flex: 1;
+              color: #666;
+              text-align: left;
+              margin-left: 12px;
+
+              &.iccid {
+                font-family: monospace;
+                font-size: 0.75rem;
+              }
+            }
+
+            .actual-payment {
+              color: #999;
+              margin-left: auto;
+              white-space: nowrap;
+
+              .amount {
+                color: #f56c6c;
+                font-weight: 600;
+                font-size: 0.9375rem;
+              }
+            }
+          }
+        }
+
+        .order-footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+
+          .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            white-space: nowrap;
+
+            &.status-pending {
+              background: #fff3e0;
+              color: #f57c00;
+            }
+
+            &.status-processing {
+              background: #e3f2fd;
+              color: #1976d2;
+            }
+
+            &.status-paid {
+              background: #f3e5f5;
+              color: #7b1fa2;
+            }
+
+            &.status-completed {
+              background: #e8f5e9;
+              color: #388e3c;
+            }
+
+            &.status-failed {
+              background: #ffebee;
+              color: #d32f2f;
+            }
+
+            &.status-cancelled {
+              background: #f5f5f5;
+              color: #757575;
+            }
+          }
+
+          .v-btn {
+            flex-shrink: 0;
+          }
+        }
+      }
     }
-    
-    .load-more-section {
-      margin-top: 24px;
-      padding: 0 16px;
-    }
-    
-    .empty-orders,
-    .no-filtered-results {
+
+    .empty-state {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 48px 24px;
+      padding: 80px 20px;
       text-align: center;
-      
-      .empty-title,
-      .no-results-title {
-        margin: 16px 0 8px;
-        color: rgba(var(--v-theme-on-surface), 0.8);
+
+      .empty-title {
         font-size: 1.125rem;
         font-weight: 600;
+        color: white;
+        margin: 16px 0 8px;
       }
-      
-      .empty-subtitle,
-      .no-results-subtitle {
-        margin: 0;
-        color: rgba(var(--v-theme-on-surface), 0.6);
+
+      .empty-subtitle {
         font-size: 0.875rem;
-        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.8);
+        margin: 0;
       }
     }
-  }
-  
-  .refresh-fab {
-    bottom: 80px !important;
-    right: 16px !important;
+
+    .load-more {
+      margin-top: 16px;
+    }
   }
 }
 
@@ -395,163 +479,63 @@ onMounted(async () => {
 @media (max-width: 360px) {
   .order-page {
     .page-header {
-      margin-bottom: 20px;
-      
+      padding: 16px 12px;
+
       .page-title {
         font-size: 1.25rem;
       }
-      
-      .order-stats {
-        .stats-text {
-          font-size: 0.8125rem;
-        }
-      }
     }
-    
-    .filter-section {
-      margin-bottom: 20px;
-      
-      .status-chips {
-        .v-chip {
-          margin-right: 6px;
-          margin-bottom: 6px;
-        }
-      }
-    }
-    
-    .orders-content {
+
+    .orders-container {
+      padding: 0 12px 12px;
+
       .orders-list {
         gap: 10px;
-      }
-      
-      .load-more-section {
-        margin-top: 20px;
-        padding: 0 12px;
-      }
-      
-      .empty-orders,
-      .no-filtered-results {
-        padding: 32px 16px;
-        
-        .empty-title,
-        .no-results-title {
-          font-size: 1rem;
+
+        .order-card {
+          padding: 12px;
+
+          .product-section {
+            .product-info {
+              .product-name {
+                font-size: 0.875rem;
+              }
+
+              .product-meta {
+                gap: 8px;
+                font-size: 0.75rem;
+              }
+            }
+
+            .product-price {
+              font-size: 1rem;
+            }
+          }
+
+          .order-details {
+            .detail-row {
+              font-size: 0.75rem;
+
+              .detail-value.iccid {
+                font-size: 0.6875rem;
+              }
+
+              .actual-payment .amount {
+                font-size: 0.875rem;
+              }
+            }
+          }
         }
-        
-        .empty-subtitle,
-        .no-results-subtitle {
-          font-size: 0.8125rem;
-        }
       }
-    }
-    
-    .refresh-fab {
-      bottom: 76px !important;
-      right: 12px !important;
     }
   }
 }
 
 @media (min-width: 481px) {
   .order-page {
-    .page-header {
-      margin-bottom: 32px;
-      
-      .page-title {
-        font-size: 1.75rem;
-      }
-      
-      .order-stats {
-        .stats-text {
-          font-size: 0.9375rem;
-        }
-      }
-    }
-    
-    .filter-section {
-      margin-bottom: 32px;
-      
-      .status-chips {
-        .v-chip {
-          margin-right: 10px;
-          margin-bottom: 10px;
-        }
-      }
-    }
-    
-    .orders-content {
-      .orders-list {
-        gap: 16px;
-      }
-      
-      .load-more-section {
-        margin-top: 32px;
-        padding: 0 20px;
-      }
-      
-      .empty-orders,
-      .no-filtered-results {
-        padding: 64px 32px;
-        
-        .empty-title,
-        .no-results-title {
-          font-size: 1.25rem;
-        }
-        
-        .empty-subtitle,
-        .no-results-subtitle {
-          font-size: 0.9375rem;
-        }
-      }
-    }
-  }
-}
-
-// 下拉刷新动画
-.refresh-indicator {
-  animation: fadeInDown 0.3s ease;
-}
-
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-// 订单列表动画
-.orders-list {
-  .order-card {
-    animation: slideInUp 0.3s ease;
-  }
-}
-
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-// 筛选芯片样式优化
-.status-chips {
-  .v-chip {
-    transition: all 0.2s ease;
-    
-    &:hover {
-      transform: translateY(-1px);
-    }
-    
-    &.v-chip--selected {
-      box-shadow: 0 2px 4px rgba(var(--v-theme-primary), 0.3);
+    .orders-container {
+      max-width: 600px;
+      margin: 0 auto;
     }
   }
 }
@@ -559,17 +543,7 @@ onMounted(async () => {
 // 深色主题适配
 .v-theme--dark {
   .order-page {
-    .page-header {
-      .page-title {
-        color: rgb(var(--v-theme-on-surface));
-      }
-      
-      .order-stats {
-        .stats-text {
-          color: rgba(var(--v-theme-on-surface), 0.7);
-        }
-      }
-    }
+    background: linear-gradient(135deg, #1a237e 0%, #4a148c 100%);
   }
 }
 </style>
