@@ -1,5 +1,7 @@
 package esim
 
+import "encoding/json"
+
 // AccountStatus 账户状态
 type AccountStatus string
 
@@ -20,13 +22,16 @@ type AccountInfo struct {
 	MemberSince string        `json:"memberSince"` // 注册时间（ISO格式）
 }
 
-// AccountInfoResponse 账户信息响应
+// AccountInfoResponse 账户信息响应（兼容不同格式）
 type AccountInfoResponse struct {
-	Success   bool        `json:"success"`
-	Code      int         `json:"code"`
-	Message   AccountInfo `json:"message"`
-	Data      string      `json:"data"`
-	Timestamp string      `json:"timestamp"`
+	Success   bool            `json:"success"`
+	Code      int             `json:"code"`
+	Message   json.RawMessage `json:"message"` // 可能是字符串或对象
+	Data      json.RawMessage `json:"data"`    // 可能是字符串或对象
+	Timestamp string          `json:"timestamp"`
+
+	// 解析后的账户信息
+	AccountInfo *AccountInfo `json:"-"`
 }
 
 // BalanceInfo 账户余额信息
@@ -41,13 +46,16 @@ type BalanceInfo struct {
 	UpdatedAt       string  `json:"updatedAt"`       // 更新时间
 }
 
-// BalanceResponse 账户余额响应
+// BalanceResponse 账户余额响应（兼容不同格式）
 type BalanceResponse struct {
-	Success   bool        `json:"success"`
-	Code      int         `json:"code"`
-	Message   BalanceInfo `json:"message"`
-	Data      string      `json:"data"`
-	Timestamp string      `json:"timestamp"`
+	Success   bool            `json:"success"`
+	Code      int             `json:"code"`
+	Message   json.RawMessage `json:"message"` // 可能是字符串或对象
+	Data      json.RawMessage `json:"data"`    // 可能是字符串或对象
+	Timestamp string          `json:"timestamp"`
+
+	// 解析后的余额信息
+	BalanceInfo *BalanceInfo `json:"-"`
 }
 
 // GetAccount 获取账户基本信息
@@ -58,7 +66,43 @@ func (c *Client) GetAccount() (*AccountInfoResponse, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// 解析账户信息（兼容处理）
+	if err := c.parseAccountInfo(&response); err != nil {
+		return nil, err
+	}
+
 	return &response, nil
+}
+
+// parseAccountInfo 解析账户信息（兼容处理）
+func (c *Client) parseAccountInfo(response *AccountInfoResponse) error {
+	var accountInfo AccountInfo
+	var err error
+
+	// 首先尝试从 Message 字段解析
+	if len(response.Message) > 0 {
+		if response.Message[0] == '{' {
+			err = json.Unmarshal(response.Message, &accountInfo)
+			if err == nil {
+				response.AccountInfo = &accountInfo
+				return nil
+			}
+		}
+	}
+
+	// 如果 Message 不是对象，尝试从 Data 字段解析
+	if len(response.Data) > 0 {
+		if response.Data[0] == '{' {
+			err = json.Unmarshal(response.Data, &accountInfo)
+			if err == nil {
+				response.AccountInfo = &accountInfo
+				return nil
+			}
+		}
+	}
+
+	return nil // 账户信息可能为空，不返回错误
 }
 
 // GetBalance 获取账户余额
@@ -69,5 +113,41 @@ func (c *Client) GetBalance() (*BalanceResponse, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// 解析余额信息（兼容处理）
+	if err := c.parseBalanceInfo(&response); err != nil {
+		return nil, err
+	}
+
 	return &response, nil
+}
+
+// parseBalanceInfo 解析余额信息（兼容处理）
+func (c *Client) parseBalanceInfo(response *BalanceResponse) error {
+	var balanceInfo BalanceInfo
+	var err error
+
+	// 首先尝试从 Message 字段解析
+	if len(response.Message) > 0 {
+		if response.Message[0] == '{' {
+			err = json.Unmarshal(response.Message, &balanceInfo)
+			if err == nil {
+				response.BalanceInfo = &balanceInfo
+				return nil
+			}
+		}
+	}
+
+	// 如果 Message 不是对象，尝试从 Data 字段解析
+	if len(response.Data) > 0 {
+		if response.Data[0] == '{' {
+			err = json.Unmarshal(response.Data, &balanceInfo)
+			if err == nil {
+				response.BalanceInfo = &balanceInfo
+				return nil
+			}
+		}
+	}
+
+	return nil // 余额信息可能为空，不返回错误
 }

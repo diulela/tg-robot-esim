@@ -142,16 +142,23 @@ func (s *orderSyncService) SyncOrderStatus(ctx context.Context, orderID uint) (*
 		return result, nil
 	}
 
+	// 检查是否成功解析订单详情
+	if providerOrder.OrderDetail == nil {
+		result.Success = false
+		result.Message = "第三方订单数据解析失败"
+		return result, nil
+	}
+
 	// 处理第三方订单状态
-	switch providerOrder.Data.Status {
+	switch providerOrder.OrderDetail.Status {
 	case esim.OrderStatusCompleted:
 		// 订单完成
 		providerOrderData := &ProviderOrderData{
-			OrderID:     providerOrder.Data.ID,
-			OrderNumber: providerOrder.Data.OrderNumber,
-			Status:      string(providerOrder.Data.Status),
-			OrderItems:  convertOrderItems(providerOrder.Data.OrderItems),
-			Esims:       convertEsims(providerOrder.Data.Esims),
+			OrderID:     providerOrder.OrderDetail.ID,
+			OrderNumber: providerOrder.OrderDetail.OrderNumber,
+			Status:      string(providerOrder.OrderDetail.Status),
+			OrderItems:  convertOrderItems(providerOrder.OrderDetail.OrderItems),
+			Esims:       convertEsims(providerOrder.OrderDetail.Esims),
 		}
 
 		err = s.orderService.ProcessOrderCompletion(ctx, orderID, providerOrderData)
@@ -166,7 +173,7 @@ func (s *orderSyncService) SyncOrderStatus(ctx context.Context, orderID uint) (*
 
 	case esim.OrderStatusCancelled, esim.OrderStatusFailed:
 		// 订单失败
-		reason := fmt.Sprintf("第三方订单状态: %s", providerOrder.Data.Status)
+		reason := fmt.Sprintf("第三方订单状态: %s", providerOrder.OrderDetail.Status)
 		err = s.orderService.ProcessOrderFailure(ctx, orderID, reason)
 		if err != nil {
 			result.Success = false
@@ -180,7 +187,7 @@ func (s *orderSyncService) SyncOrderStatus(ctx context.Context, orderID uint) (*
 	case esim.OrderStatusPending, esim.OrderStatusPaid, esim.OrderStatusProcessing:
 		// 订单仍在处理中，继续等待
 		result.Success = true
-		result.Message = fmt.Sprintf("订单仍在处理中，第三方状态: %s", providerOrder.Data.Status)
+		result.Message = fmt.Sprintf("订单仍在处理中，第三方状态: %s", providerOrder.OrderDetail.Status)
 
 		// 设置下次同步时间
 		nextSyncAt := time.Now().Add(s.syncInterval)
@@ -188,7 +195,7 @@ func (s *orderSyncService) SyncOrderStatus(ctx context.Context, orderID uint) (*
 
 	default:
 		result.Success = false
-		result.Message = fmt.Sprintf("未知的第三方订单状态: %s", providerOrder.Data.Status)
+		result.Message = fmt.Sprintf("未知的第三方订单状态: %s", providerOrder.OrderDetail.Status)
 	}
 
 	return result, nil

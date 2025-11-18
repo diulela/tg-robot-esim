@@ -1,6 +1,9 @@
 package esim
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // OrderStatus 订单状态
 type OrderStatus string
@@ -59,17 +62,25 @@ type CreateOrderRequest struct {
 	Quantity      int    `json:"quantity,omitempty"`      // 购买数量，默认为1（可选）
 }
 
-// CreateOrderResponse 创建订单响应
+// CreateOrderData 创建订单数据
+type CreateOrderData struct {
+	OrderID     int         `json:"orderId"`     // 订单ID
+	OrderNumber string      `json:"orderNumber"` // 订单编号
+	TotalAmount string      `json:"totalAmount"` // 订单总金额（字符串格式）
+	PayAmount   string      `json:"payAmount"`   // 实付金额（字符串格式）
+	Status      OrderStatus `json:"status"`      // 订单状态
+}
+
+// CreateOrderResponse 创建订单响应（兼容不同格式）
 type CreateOrderResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-	Data    struct {
-		OrderID     int         `json:"orderId"`     // 订单ID
-		OrderNumber string      `json:"orderNumber"` // 订单编号
-		TotalAmount float64     `json:"totalAmount"` // 订单总金额
-		PayAmount   float64     `json:"payAmount"`   // 实付金额
-		Status      OrderStatus `json:"status"`      // 订单状态
-	} `json:"data"`
+	Success   bool            `json:"success"`
+	Code      int             `json:"code"`
+	Message   json.RawMessage `json:"message"` // 可能是字符串或对象
+	Data      json.RawMessage `json:"data"`    // 可能是字符串或对象
+	Timestamp string          `json:"timestamp"`
+
+	// 解析后的订单数据
+	OrderData *CreateOrderData `json:"-"`
 }
 
 // OrderListResponse 订单列表响应
@@ -87,11 +98,16 @@ type OrderListMessage struct {
 	Pagination Pagination `json:"pagination"`
 }
 
-// OrderDetailResponse 订单详情响应
+// OrderDetailResponse 订单详情响应（兼容不同格式）
 type OrderDetailResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-	Data    Order  `json:"data"`
+	Success   bool            `json:"success"`
+	Code      int             `json:"code"`
+	Message   json.RawMessage `json:"message"` // 可能是字符串或对象
+	Data      json.RawMessage `json:"data"`    // 可能是字符串或对象
+	Timestamp string          `json:"timestamp"`
+
+	// 解析后的订单详情
+	OrderDetail *Order `json:"-"`
 }
 
 // OrderParams 订单查询参数
@@ -110,7 +126,45 @@ func (c *Client) CreateOrder(req CreateOrderRequest) (*CreateOrderResponse, erro
 	if err != nil {
 		return nil, err
 	}
+
+	// 解析订单数据（兼容处理）
+	if err := c.parseCreateOrderData(&response); err != nil {
+		return nil, fmt.Errorf("parse create order data: %w", err)
+	}
+
 	return &response, nil
+}
+
+// parseCreateOrderData 解析创建订单数据（兼容处理）
+func (c *Client) parseCreateOrderData(response *CreateOrderResponse) error {
+	var orderData CreateOrderData
+	var err error
+
+	// 首先尝试从 Message 字段解析（根据实际API响应，订单数据在 message 中）
+	if len(response.Message) > 0 {
+		// 检查 Message 是否是对象
+		if response.Message[0] == '{' {
+			err = json.Unmarshal(response.Message, &orderData)
+			if err == nil {
+				response.OrderData = &orderData
+				return nil
+			}
+		}
+	}
+
+	// 如果 Message 不是对象，尝试从 Data 字段解析
+	if len(response.Data) > 0 {
+		// 检查 Data 是否是对象
+		if response.Data[0] == '{' {
+			err = json.Unmarshal(response.Data, &orderData)
+			if err == nil {
+				response.OrderData = &orderData
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("no valid order data found in response")
 }
 
 // GetOrders 获取订单列表
@@ -155,5 +209,42 @@ func (c *Client) GetOrder(orderID int) (*OrderDetailResponse, error) {
 		return nil, err
 	}
 
+	// 解析订单详情（兼容处理）
+	if err := c.parseOrderDetail(&response); err != nil {
+		return nil, fmt.Errorf("parse order detail: %w", err)
+	}
+
 	return &response, nil
+}
+
+// parseOrderDetail 解析订单详情（兼容处理）
+func (c *Client) parseOrderDetail(response *OrderDetailResponse) error {
+	var order Order
+	var err error
+
+	// 首先尝试从 Data 字段解析
+	if len(response.Data) > 0 {
+		// 检查 Data 是否是对象
+		if response.Data[0] == '{' {
+			err = json.Unmarshal(response.Data, &order)
+			if err == nil {
+				response.OrderDetail = &order
+				return nil
+			}
+		}
+	}
+
+	// 如果 Data 不是对象，尝试从 Message 字段解析
+	if len(response.Message) > 0 {
+		// 检查 Message 是否是对象
+		if response.Message[0] == '{' {
+			err = json.Unmarshal(response.Message, &order)
+			if err == nil {
+				response.OrderDetail = &order
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("no valid order detail found in response")
 }

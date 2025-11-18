@@ -550,10 +550,22 @@ func (s *orderService) createProviderOrder(ctx context.Context, order *models.Or
 	}
 
 	// 检查订单创建是否成功
-	if !providerOrder.Success || providerOrder.Data.OrderNumber == "" {
-		return "", fmt.Errorf("第三方订单创建失败: %s", providerOrder.Message)
+	if !providerOrder.Success {
+		// 尝试从 Data 字段获取错误消息
+		var errorMsg string
+		if len(providerOrder.Data) > 0 {
+			errorMsg = string(providerOrder.Data)
+		} else if len(providerOrder.Message) > 0 {
+			errorMsg = string(providerOrder.Message)
+		}
+		return "", fmt.Errorf("第三方订单创建失败: %s", errorMsg)
+	}
+
+	// 检查解析后的订单数据
+	if providerOrder.OrderData == nil || providerOrder.OrderData.OrderNumber == "" {
+		return "", fmt.Errorf("第三方订单创建失败: 未返回订单号")
 	}
 
 	// 返回第三方订单号
-	return providerOrder.Data.OrderNumber, nil
+	return providerOrder.OrderData.OrderNumber, nil
 }
