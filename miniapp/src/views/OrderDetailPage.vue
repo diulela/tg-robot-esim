@@ -440,7 +440,7 @@ onMounted(async () => {
   await fetchOrderDetail()
 })
 </script>
-< style scoped lang="scss">
+<style scoped lang="scss">
   .order-detail-page {
   .order-content {
   padding: 0;
