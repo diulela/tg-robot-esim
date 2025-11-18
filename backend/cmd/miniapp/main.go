@@ -12,6 +12,7 @@ import (
 	"tg-robot-sim/config"
 	"tg-robot-sim/pkg/bot"
 	"tg-robot-sim/pkg/logger"
+	"tg-robot-sim/pkg/sdk/esim"
 	"tg-robot-sim/pkg/tron"
 	"tg-robot-sim/server"
 	"tg-robot-sim/services"
@@ -99,6 +100,28 @@ func main() {
 		esimService,
 	)
 
+	// 初始化订单同步服务
+	var orderSyncService services.OrderSyncService
+	if cfg.EsimSDK.APIKey != "" && cfg.EsimSDK.APIKey != "${ESIM_API_KEY}" {
+		// 创建 eSIM Client 用于订单同步
+		esimClient := esim.NewClient(esim.Config{
+			APIKey:         cfg.EsimSDK.APIKey,
+			APISecret:      cfg.EsimSDK.APISecret,
+			BaseURL:        cfg.EsimSDK.BaseURL,
+			TimezoneOffset: cfg.EsimSDK.TimezoneOffset,
+		})
+
+		// 创建订单同步服务
+		orderSyncService = services.NewOrderSyncService(
+			db.GetOrderRepository(),
+			orderService,
+			esimClient,
+		)
+		appLogger.Info("OrderSyncService initialized successfully")
+	} else {
+		appLogger.Warn("eSIM SDK not configured, OrderSyncService will not be initialized")
+	}
+
 	// 初始化 Telegram Bot
 	telegramBot, err := bot.NewBot(&cfg.Telegram, appLogger)
 	if err != nil {
@@ -130,9 +153,17 @@ func main() {
 
 	// 启动充值订单过期定时任务
 	go func() {
-		log.Println("Starting blockchain monitoring task...")
+		log.Println("Starting recharge order expiration monitoring task...")
 		startExpireOldOrdersMonitoring(rechargeService)
 	}()
+
+	// 启动订单同步定时任务
+	if orderSyncService != nil {
+		go func() {
+			log.Println("Starting order sync task...")
+			startOrderSyncTask(orderSyncService, appLogger)
+		}()
+	}
 
 	// 启动服务器
 	go func() {
@@ -183,13 +214,13 @@ func startBlockchainMonitoring(rechargeService services.RechargeService) {
 	}
 }
 
-// startBlockchainMonitoring 启动区块链监控定时任务
+// startExpireOldOrdersMonitoring 启动充值订单过期监控定时任务
 func startExpireOldOrdersMonitoring(rechargeService services.RechargeService) {
 	// 每30秒执行一次监控任务
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
-	log.Println("Blockchain monitoring started, checking every 30 seconds")
+	log.Println("Recharge order expiration monitoring started, checking every 30 seconds")
 
 	for {
 		select {
@@ -199,6 +230,30 @@ func startExpireOldOrdersMonitoring(rechargeService services.RechargeService) {
 			if err := rechargeService.ExpireOldOrders(ctx); err != nil {
 				log.Printf("Error expiring old orders: %v", err)
 			}
+			cancel()
+		}
+	}
+}
+
+// startOrderSyncTask 启动订单同步定时任务
+func startOrderSyncTask(orderSyncService services.OrderSyncService, appLogger *logger.Logger) {
+	// 每10秒执行一次同步任务
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	log.Println("Order sync task started, checking every 10 seconds")
+
+	for {
+		select {
+		case <-ticker.C:
+			// 创建带超时的上下文
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+
+			// 处理待同步订单
+			if err := orderSyncService.ProcessPendingOrders(ctx); err != nil {
+				appLogger.Error("Error processing pending orders: %v", err)
+			}
+
 			cancel()
 		}
 	}
