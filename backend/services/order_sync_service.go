@@ -127,10 +127,7 @@ func (s *orderSyncService) SyncOrderStatus(ctx context.Context, orderID uint) (*
 	}
 
 	// 调用第三方 API 查询订单状态
-	providerOrderIDInt := 0 // 需要将字符串转换为整数
-	fmt.Sscanf(order.ProviderOrderID, "%d", &providerOrderIDInt)
-
-	providerOrder, err := s.esimClient.GetOrder(providerOrderIDInt)
+	providerOrder, err := s.esimClient.GetOrder(order.ProviderOrderNo)
 	if err != nil {
 		result.Success = false
 		result.Message = fmt.Sprintf("查询第三方订单失败: %v", err)

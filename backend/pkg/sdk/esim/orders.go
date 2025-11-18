@@ -200,8 +200,8 @@ func (c *Client) GetOrders(params *OrderParams) (*OrderListResponse, error) {
 }
 
 // GetOrder 获取订单详情
-func (c *Client) GetOrder(orderID int) (*OrderDetailResponse, error) {
-	path := fmt.Sprintf("/api/v1/orders/%d", orderID)
+func (c *Client) GetOrder(orderNo string) (*OrderDetailResponse, error) {
+	path := fmt.Sprintf("/api/v1/orders/%s", orderNo)
 
 	var response OrderDetailResponse
 	err := c.requestTyped("GET", path, nil, &response)
