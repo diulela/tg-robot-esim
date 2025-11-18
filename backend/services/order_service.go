@@ -447,11 +447,21 @@ func (s *orderService) ProcessOrderCompletion(ctx context.Context, orderID uint,
 
 	// 保存订单详情
 	if providerOrderData != nil {
+		fmt.Printf("[DEBUG] Saving order detail for order %d\n", orderID)
+		fmt.Printf("[DEBUG] Provider order data: OrderID=%d, OrderNumber=%s, Status=%s\n",
+			providerOrderData.OrderID, providerOrderData.OrderNumber, providerOrderData.Status)
+		fmt.Printf("[DEBUG] OrderItems count: %d, Esims count: %d\n",
+			len(providerOrderData.OrderItems), len(providerOrderData.Esims))
+
 		err = s.saveOrderDetail(ctx, orderID, providerOrderData)
 		if err != nil {
 			// 保存详情失败不应该影响主流程，只记录日志
-			fmt.Printf("Warning: failed to save order detail: %v\n", err)
+			fmt.Printf("[ERROR] Failed to save order detail: %v\n", err)
+		} else {
+			fmt.Printf("[DEBUG] Order detail saved successfully for order %d\n", orderID)
 		}
+	} else {
+		fmt.Printf("[WARNING] Provider order data is nil for order %d\n", orderID)
 	}
 
 	return nil

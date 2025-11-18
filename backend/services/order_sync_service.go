@@ -147,9 +147,17 @@ func (s *orderSyncService) SyncOrderStatus(ctx context.Context, orderID uint) (*
 	}
 
 	// 处理第三方订单状态
-	switch providerOrder.OrderDetail.Status {
-	case esim.OrderStatusCompleted:
+	// 检查订单是否已完成：状态为 completed 或者 (状态为 paid 且有 eSIM 数据)
+	isCompleted := providerOrder.OrderDetail.Status == esim.OrderStatusCompleted ||
+		(providerOrder.OrderDetail.Status == esim.OrderStatusPaid && len(providerOrder.OrderDetail.Esims) > 0)
+
+	fmt.Printf("[DEBUG] Order sync - OrderID: %d, Status: %s, Esims count: %d, isCompleted: %v\n",
+		orderID, providerOrder.OrderDetail.Status, len(providerOrder.OrderDetail.Esims), isCompleted)
+
+	switch {
+	case isCompleted:
 		// 订单完成
+		fmt.Printf("[DEBUG] Processing order completion for order %d\n", orderID)
 		providerOrderData := &ProviderOrderData{
 			OrderID:     providerOrder.OrderDetail.ID,
 			OrderNumber: providerOrder.OrderDetail.OrderNumber,
@@ -162,13 +170,15 @@ func (s *orderSyncService) SyncOrderStatus(ctx context.Context, orderID uint) (*
 		if err != nil {
 			result.Success = false
 			result.Message = fmt.Sprintf("处理订单完成失败: %v", err)
+			fmt.Printf("[ERROR] Failed to process order completion: %v\n", err)
 		} else {
 			result.Success = true
 			result.Message = "订单处理完成"
 			result.NewStatus = string(models.OrderStatusCompleted)
+			fmt.Printf("[DEBUG] Order %d completed successfully\n", orderID)
 		}
 
-	case esim.OrderStatusCancelled, esim.OrderStatusFailed:
+	case providerOrder.OrderDetail.Status == esim.OrderStatusCancelled || providerOrder.OrderDetail.Status == esim.OrderStatusFailed:
 		// 订单失败
 		reason := fmt.Sprintf("第三方订单状态: %s", providerOrder.OrderDetail.Status)
 		err = s.orderService.ProcessOrderFailure(ctx, orderID, reason)
@@ -181,7 +191,9 @@ func (s *orderSyncService) SyncOrderStatus(ctx context.Context, orderID uint) (*
 			result.NewStatus = string(models.OrderStatusFailed)
 		}
 
-	case esim.OrderStatusPending, esim.OrderStatusPaid, esim.OrderStatusProcessing:
+	case providerOrder.OrderDetail.Status == esim.OrderStatusPending ||
+		providerOrder.OrderDetail.Status == esim.OrderStatusPaid ||
+		providerOrder.OrderDetail.Status == esim.OrderStatusProcessing:
 		// 订单仍在处理中，继续等待
 		result.Success = true
 		result.Message = fmt.Sprintf("订单仍在处理中，第三方状态: %s", providerOrder.OrderDetail.Status)
