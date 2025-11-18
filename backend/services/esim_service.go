@@ -20,7 +20,7 @@ type EsimService interface {
 	CreateOrder(ctx context.Context, req esim.CreateOrderRequest) (*esim.CreateOrderResponse, error)
 
 	// GetOrder 获取订单详情
-	GetOrder(ctx context.Context, orderID int) (*esim.OrderDetailResponse, error)
+	GetOrder(ctx context.Context, orderNo string) (*esim.OrderDetailResponse, error)
 
 	// GetEsimUsage 获取eSIM使用情况
 	GetEsimUsage(ctx context.Context, orderID int) (*esim.EsimUsageResponse, error)
@@ -67,8 +67,8 @@ func (s *esimServiceImpl) CreateOrder(ctx context.Context, req esim.CreateOrderR
 }
 
 // GetOrder 获取订单详情
-func (s *esimServiceImpl) GetOrder(ctx context.Context, orderID int) (*esim.OrderDetailResponse, error) {
-	return s.client.GetOrder(orderID)
+func (s *esimServiceImpl) GetOrder(ctx context.Context, orderNo string) (*esim.OrderDetailResponse, error) {
+	return s.client.GetOrder(orderNo)
 }
 
 // GetEsimUsage 获取eSIM使用情况
