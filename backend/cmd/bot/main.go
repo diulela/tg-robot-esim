@@ -15,6 +15,7 @@ import (
 	"tg-robot-sim/pkg/bot"
 	"tg-robot-sim/pkg/logger"
 	"tg-robot-sim/services"
+	service_common "tg-robot-sim/services/common"
 	"tg-robot-sim/storage/data"
 )
 
@@ -102,9 +103,9 @@ func main() {
 	appLogger.Info("Dialog service initialized")
 
 	// 初始化 eSIM 服务
-	var esimService services.EsimService
+	var esimService service_common.EsimClientService
 	if cfg.EsimSDK.APIKey != "" && cfg.EsimSDK.APIKey != "${ESIM_API_KEY}" {
-		esimService = services.NewEsimService(
+		esimService = service_common.NewEsimClientService(
 			cfg.EsimSDK.APIKey,
 			cfg.EsimSDK.APISecret,
 			cfg.EsimSDK.BaseURL,

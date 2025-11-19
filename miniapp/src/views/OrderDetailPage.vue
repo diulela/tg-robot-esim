@@ -39,7 +39,7 @@
             <div class="info-item">
               <span class="info-label">订单编号</span>
               <div class="info-value-container">
-                <span class="info-value">{{ order.orderNumber }}</span>
+                <span class="info-value">{{ order.orderNo }}</span>
                 <v-btn icon variant="text" size="small" @click="copyOrderNumber">
                   <v-icon size="16">mdi-content-copy</v-icon>
                 </v-btn>
@@ -51,9 +51,9 @@
               <span class="info-value">{{ formatDateTime(order.createdAt) }}</span>
             </div>
 
-            <div v-if="order.paidAt" class="info-item">
-              <span class="info-label">支付时间</span>
-              <span class="info-value">{{ formatDateTime(order.paidAt) }}</span>
+            <div v-if="order.completedAt" class="info-item">
+              <span class="info-label">完成时间</span>
+              <span class="info-value">{{ formatDateTime(order.completedAt) }}</span>
             </div>
 
             <div class="info-item">
@@ -63,7 +63,7 @@
 
             <div class="info-item">
               <span class="info-label">订单金额</span>
-              <span class="info-value price">{{ formatAmount(order.amount, order.currency) }}</span>
+              <span class="info-value price">${{ order.totalAmount }}</span>
             </div>
           </div>
         </v-card-text>
@@ -98,21 +98,33 @@
       </v-card>
 
       <!-- eSIM 信息卡片 -->
-      <div v-if="order.esimInfo" class="esim-section">
-        <ESIMInfoCard 
-          :esim-info="order.esimInfo" 
-          :order-id="parseInt(order['id'])"
-          :show-q-r-code="true" 
-          :allow-copy="true" 
-          @copy-iccid="handleCopyICCID"
-          @copy-activation-code="handleCopyActivationCode" 
-          @download-q-r="handleDownloadQR"
-          @share-q-r="handleShareQR"
-          @open-usage-dialog="showUsageDialog = true"
-          @open-history-dialog="showHistoryDialog = true"
-          @open-topup-dialog="showTopupDialog = true"
-          @open-install-guide="showInstallGuide = true"
-        />
+      <div v-if="order.esims && order.esims.length > 0" class="esim-section">
+        <v-card class="info-card" variant="elevated">
+          <v-card-title class="card-title">
+            <v-icon start>mdi-sim</v-icon>
+            eSIM 信息
+          </v-card-title>
+          <v-card-text class="card-content">
+            <div v-for="(esim, index) in order.esims" :key="esim.iccid" class="esim-item">
+              <div class="esim-header">
+                <h4 class="esim-title">eSIM #{{ index + 1 }}</h4>
+                <div class="status-badge" :class="`status-${esim.status}`">
+                  {{ esim.status }}
+                </div>
+              </div>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">ICCID</span>
+                  <span class="info-value">{{ esim.iccid }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">激活码</span>
+                  <span class="info-value">{{ esim.activationCode }}</span>
+                </div>
+              </div>
+            </div>
+          </v-card-text>
+        </v-card>
       </div>
 
       <!-- 操作按钮 -->
@@ -122,7 +134,8 @@
           重新支付
         </v-btn>
 
-        <v-btn v-if="order.status === 'completed'" color="success" variant="outlined" block size="large"
+        <v-btn v-if="order.status === EsimOrderStatus.COMPLETED && order.esims && order.esims.length > 0" 
+          color="success" variant="outlined" block size="large"
           @click="scrollToESIM">
           查看 eSIM 信息
         </v-btn>
@@ -133,51 +146,46 @@
       </div>
     </div>
 
-    <!-- eSIM 相关弹窗 -->
+    <!-- eSIM 相关弹窗 - 暂时注释，等待组件适配 -->
+    <!--
     <ESIMUsageDialog 
       v-if="order"
       v-model="showUsageDialog" 
-      :order-id="parseInt(order['id'])"
+      :order-id="parseInt(order.id)"
       @open-topup="showTopupDialog = true"
     />
     
     <ESIMHistoryDialog 
       v-if="order"
       v-model="showHistoryDialog" 
-      :order-id="parseInt(order['id'])"
+      :order-id="parseInt(order.id)"
     />
     
     <ESIMTopupDialog 
       v-if="order"
       v-model="showTopupDialog" 
-      :order-id="parseInt(order['id'])"
+      :order-id="parseInt(order.id)"
       @topup-success="handleTopupSuccess"
     />
     
     <ESIMInstallGuide 
-      v-if="order && order.esimInfo"
+      v-if="order && order.esims && order.esims.length > 0"
       v-model="showInstallGuide" 
-      :order-id="parseInt(order['id'])"
-      :esim-info="order.esimInfo"
+      :order-id="parseInt(order.id)"
+      :esim-info="order.esims[0]"
     />
+    -->
   </PageWrapper>
 </template>
 <script setup lang="ts">
-import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useOrdersStore } from '@/stores/orders'
 import { useESIMStore } from '@/stores/esim'
 import { useAppStore } from '@/stores/app'
 import { telegramService } from '@/services/telegram'
 import PageWrapper from '@/components/layout/PageWrapper.vue'
-import ESIMInfoCard from '@/components/business/ESIMInfoCard.vue'
-import type { OrderStatus } from '@/types'
-
-// 异步加载弹窗组件
-const ESIMUsageDialog = defineAsyncComponent(() => import('@/components/business/ESIMUsageDialog.vue'))
-const ESIMHistoryDialog = defineAsyncComponent(() => import('@/components/business/ESIMHistoryDialog.vue'))
-const ESIMTopupDialog = defineAsyncComponent(() => import('@/components/business/ESIMTopupDialog.vue'))
-const ESIMInstallGuide = defineAsyncComponent(() => import('@/components/business/ESIMInstallGuide.vue'))
+import { EsimOrderStatus } from '@/types/esim-order'
 
 // Props
 interface Props {
@@ -198,12 +206,6 @@ const isLoading = ref(false)
 const error = ref<string | null>(null)
 const retryingPayment = ref(false)
 
-// 弹窗状态
-const showUsageDialog = ref(false)
-const showHistoryDialog = ref(false)
-const showTopupDialog = ref(false)
-const showInstallGuide = ref(false)
-
 // 计算属性
 const orderId = computed(() => props.id || route.params['id'] as string)
 
@@ -217,13 +219,13 @@ const order = computed(() => {
 const statusIcon = computed(() => {
   if (!order.value) return 'mdi-help-circle'
 
-  const iconMap: Record<OrderStatus, string> = {
-    pending: 'mdi-clock-outline',
-    paid: 'mdi-check-circle',
-    processing: 'mdi-cog',
-    completed: 'mdi-check-circle',
-    cancelled: 'mdi-close-circle',
-    refunded: 'mdi-undo'
+  const iconMap: Record<EsimOrderStatus, string> = {
+    [EsimOrderStatus.PENDING]: 'mdi-clock-outline',
+    [EsimOrderStatus.PAID]: 'mdi-check-circle',
+    [EsimOrderStatus.PROCESSING]: 'mdi-cog',
+    [EsimOrderStatus.COMPLETED]: 'mdi-check-circle',
+    [EsimOrderStatus.CANCELLED]: 'mdi-close-circle',
+    [EsimOrderStatus.FAILED]: 'mdi-alert-circle'
   }
 
   return iconMap[order.value.status] || 'mdi-help-circle'
@@ -243,37 +245,30 @@ const statusSubtitle = computed(() => {
   if (!order.value) return ''
 
   switch (order.value.status) {
-    case 'pending':
+    case EsimOrderStatus.PENDING:
       return '请完成支付以激活您的 eSIM'
-    case 'paid':
+    case EsimOrderStatus.PAID:
       return '正在处理您的订单'
-    case 'processing':
+    case EsimOrderStatus.PROCESSING:
       return '正在为您准备 eSIM'
-    case 'completed':
+    case EsimOrderStatus.COMPLETED:
       return 'eSIM 已准备就绪'
-    case 'cancelled':
+    case EsimOrderStatus.CANCELLED:
       return '订单已取消'
-    case 'refunded':
-      return '订单已退款'
+    case EsimOrderStatus.FAILED:
+      return '订单处理失败'
     default:
       return ''
   }
 })
 
 const canRetryPayment = computed(() => {
-  return order.value?.status === 'pending'
+  return order.value?.status === EsimOrderStatus.PENDING
 })
 
 const paymentMethodText = computed(() => {
-  if (!order.value?.paymentMethod) return '未知'
-
-  const methodMap: Record<string, string> = {
-    usdt_trc20: 'USDT-TRC20',
-    telegram_stars: 'Telegram Stars',
-    credit_card: '信用卡'
-  }
-
-  return methodMap[order.value.paymentMethod] || '其他'
+  // EsimOrder 类型暂时没有 paymentMethod 字段，默认显示钱包余额
+  return '钱包余额'
 })
 
 // 方法
@@ -303,7 +298,7 @@ const copyOrderNumber = async () => {
   if (!order.value) return
 
   try {
-    await navigator.clipboard.writeText(order.value.orderNumber)
+    await navigator.clipboard.writeText(order.value.orderNo)
     appStore.showNotification({
       type: 'success',
       message: '订单号已复制到剪贴板',
@@ -325,14 +320,10 @@ const retryPayment = async () => {
   retryingPayment.value = true
 
   try {
-    const paymentUrl = await ordersStore.retryPayment(order.value['id'] as string)
-
-    // 打开支付链接
-    telegramService.openLink(paymentUrl)
-
+    // TODO: 实现重新支付逻辑
     appStore.showNotification({
       type: 'info',
-      message: '正在跳转到支付页面...',
+      message: '重新支付功能开发中...',
       duration: 3000
     })
   } catch (err) {
@@ -357,28 +348,10 @@ const formatDateTime = (dateString: string): string => {
   })
 }
 
-const formatAmount = (amount: number, currency: string): string => {
-  return `${currency === 'USD' ? '$' : '¥'}${amount.toFixed(2)}`
-}
-
-const handleCopyICCID = (iccid: string) => {
-  console.log('ICCID 已复制:', iccid)
-}
-
-const handleCopyActivationCode = (code: string) => {
-  console.log('激活码已复制:', code)
-}
-
-const handleDownloadQR = (qrCode: string) => {
-  console.log('二维码已下载:', qrCode)
-}
-
-const handleShareQR = (qrCode: string) => {
-  console.log('二维码已分享:', qrCode)
-}
+// 移除未使用的 formatAmount 函数
 
 const scrollToESIM = () => {
-  const esimElement = document.getElementById('esim-info')
+  const esimElement = document.querySelector('.esim-section')
   if (esimElement) {
     esimElement.scrollIntoView({ behavior: 'smooth' })
   }
@@ -388,35 +361,13 @@ const goBack = () => {
   router.push({ name: 'Orders' })
 }
 
-const handleTopupSuccess = async () => {
-  // 充值成功后刷新订单详情和清除 eSIM 缓存
-  try {
-    if (order.value) {
-      esimStore.clearCache(parseInt(order.value['id'] as string))
-    }
-    await fetchOrderDetail()
-    appStore.showNotification({
-      type: 'success',
-      message: '充值成功，订单信息已更新',
-      duration: 3000
-    })
-  } catch (error) {
-    console.error('刷新订单详情失败:', error)
-    appStore.showNotification({
-      type: 'warning',
-      message: '充值成功，但刷新订单信息失败，请手动刷新页面',
-      duration: 4000
-    })
-  }
-}
-
 // 刷新页面数据
 const refreshData = async () => {
   if (!order.value) return
   
   try {
     // 清除 eSIM 相关缓存
-    esimStore.clearCache(parseInt(order.value['id'] as string))
+    esimStore.clearCache(parseInt(order.value.id))
     
     // 重新获取订单详情
     await fetchOrderDetail()
@@ -579,6 +530,52 @@ onMounted(async () => {
 
   .esim-section {
   margin-bottom: 16px;
+
+  .esim-item {
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    .esim-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+
+      .esim-title {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        margin: 0;
+        color: rgb(var(--v-theme-on-surface));
+      }
+
+      .status-badge {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: capitalize;
+
+        &.status-active {
+          background: #e8f5e9;
+          color: #388e3c;
+        }
+
+        &.status-inactive {
+          background: #f5f5f5;
+          color: #757575;
+        }
+
+        &.status-pending {
+          background: #fff3e0;
+          color: #f57c00;
+        }
+      }
+    }
+  }
   }
 
   .action-buttons {

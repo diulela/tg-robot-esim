@@ -16,10 +16,6 @@ func (h *MiniAppApiService) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/miniapp/wallet/recharge/", h.handleRechargeDetail)
 	mux.HandleFunc("/api/miniapp/wallet/recharge/history", h.handleRechargeHistory)
 
-	// 订单相关
-	mux.HandleFunc("/api/miniapp/purchase", h.handlePurchase)
-	mux.HandleFunc("/api/miniapp/orders", h.handleOrders)
-
 	// eSIM 订单相关
 	mux.HandleFunc("/api/miniapp/esim/orders", h.handleEsimOrders)
 	mux.HandleFunc("/api/miniapp/esim/orders/", h.handleEsimOrderDetail)

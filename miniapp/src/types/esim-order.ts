@@ -30,9 +30,13 @@ export interface EsimOrder {
   totalAmount: string
   status: EsimOrderStatus
   providerOrderId?: string
+  providerOrderNo?: string
   createdAt: string
   updatedAt: string
   completedAt?: string
+  // 可选的详情字段（列表接口现在也会返回）
+  orderItems?: OrderItemDetail[]
+  esims?: EsimDetail[]
 }
 
 // 订单项详情
@@ -50,11 +54,9 @@ export interface EsimDetail {
   status: string
 }
 
-// eSIM 订单详情
+// eSIM 订单详情（完整版本，包含用户ID）
 export interface EsimOrderDetail extends EsimOrder {
   userId: number
-  orderItems: OrderItemDetail[]
-  esims: EsimDetail[]
 }
 
 // 订单查询参数

@@ -11,7 +11,7 @@ import (
 
 	"tg-robot-sim/pkg/logger"
 	"tg-robot-sim/pkg/sdk/esim"
-	"tg-robot-sim/services"
+	service_common "tg-robot-sim/services/common"
 	"tg-robot-sim/storage/models"
 	"tg-robot-sim/storage/repository"
 )
@@ -19,17 +19,17 @@ import (
 // ProductsHandler 商品列表处理器
 type ProductsHandler struct {
 	bot               *tgbotapi.BotAPI
-	esimService       services.EsimService
+	esimClientService service_common.EsimClientService
 	productRepo       repository.ProductRepository
 	productDetailRepo repository.ProductDetailRepository
 	logger            logger.ILogger
 }
 
 // NewProductsHandler 创建商品处理器
-func NewProductsHandler(bot *tgbotapi.BotAPI, esimService services.EsimService, productRepo repository.ProductRepository, productDetailRepo repository.ProductDetailRepository, logger logger.ILogger) *ProductsHandler {
+func NewProductsHandler(bot *tgbotapi.BotAPI, esimClientService service_common.EsimClientService, productRepo repository.ProductRepository, productDetailRepo repository.ProductDetailRepository, logger logger.ILogger) *ProductsHandler {
 	return &ProductsHandler{
 		bot:               bot,
-		esimService:       esimService,
+		esimClientService: esimClientService,
 		productRepo:       productRepo,
 		productDetailRepo: productDetailRepo,
 		logger:            logger,
@@ -290,7 +290,7 @@ func (h *ProductsHandler) getProductDetailFromAPI(ctx context.Context, productID
 	}
 
 	// 调用API获取详情
-	resp, err := h.esimService.GetProduct(ctx, thirdPartyID)
+	resp, err := h.esimClientService.GetProduct(ctx, thirdPartyID)
 	if err != nil {
 		return "", fmt.Errorf("API call failed: %w", err)
 	}

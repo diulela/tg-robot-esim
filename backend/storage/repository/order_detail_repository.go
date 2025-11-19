@@ -24,6 +24,7 @@ type OrderDetailRepository interface {
 
 	// 批量操作
 	CreateOrUpdate(ctx context.Context, orderDetail *models.OrderDetail) error
+	GetByOrderIDs(ctx context.Context, orderIDs []uint) (map[uint]*models.OrderDetail, error)
 }
 
 // orderDetailRepository 订单详情仓储实现
@@ -141,4 +142,27 @@ func (r *orderDetailRepository) ParseEsims(orderDetail *models.OrderDetail, targ
 	}
 
 	return json.Unmarshal([]byte(orderDetail.Esims), target)
+}
+
+// GetByOrderIDs 批量根据订单ID获取订单详情
+func (r *orderDetailRepository) GetByOrderIDs(ctx context.Context, orderIDs []uint) (map[uint]*models.OrderDetail, error) {
+	if len(orderIDs) == 0 {
+		return make(map[uint]*models.OrderDetail), nil
+	}
+
+	var orderDetails []*models.OrderDetail
+	err := r.db.WithContext(ctx).
+		Where("order_id IN ?", orderIDs).
+		Find(&orderDetails).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// 转换为 map 便于查找
+	result := make(map[uint]*models.OrderDetail, len(orderDetails))
+	for _, detail := range orderDetails {
+		result[detail.OrderID] = detail
+	}
+
+	return result, nil
 }

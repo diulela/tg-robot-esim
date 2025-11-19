@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"tg-robot-sim/pkg/sdk/esim"
+	service_common "tg-robot-sim/services/common"
 	"tg-robot-sim/storage/models"
 	"tg-robot-sim/storage/repository"
 )
@@ -30,6 +31,9 @@ type OrderService interface {
 
 	// GetOrderWithDetail 获取包含详情的订单信息
 	GetOrderWithDetail(ctx context.Context, orderID uint, userID int64) (*OrderWithDetail, error)
+
+	// GetOrderDetailsByOrderIDs 批量获取订单详情
+	GetOrderDetailsByOrderIDs(ctx context.Context, orderIDs []uint) (map[uint]*OrderWithDetail, error)
 
 	// ProcessOrderCompletion 处理订单完成（确认扣费）
 	ProcessOrderCompletion(ctx context.Context, orderID uint, providerOrderData *ProviderOrderData) error
@@ -54,11 +58,11 @@ type OrderStats struct {
 
 // orderService 订单服务实现
 type orderService struct {
-	orderRepo       repository.OrderRepository
-	orderDetailRepo repository.OrderDetailRepository
-	productRepo     repository.ProductRepository
-	walletService   WalletService
-	esimService     EsimService
+	orderRepo         repository.OrderRepository
+	orderDetailRepo   repository.OrderDetailRepository
+	productRepo       repository.ProductRepository
+	walletService     WalletService
+	esimClientService service_common.EsimClientService
 }
 
 // NewOrderService 创建订单服务实例
@@ -67,14 +71,14 @@ func NewOrderService(
 	orderDetailRepo repository.OrderDetailRepository,
 	productRepo repository.ProductRepository,
 	walletService WalletService,
-	esimService EsimService,
+	esimClientService service_common.EsimClientService,
 ) OrderService {
 	return &orderService{
-		orderRepo:       orderRepo,
-		orderDetailRepo: orderDetailRepo,
-		productRepo:     productRepo,
-		walletService:   walletService,
-		esimService:     esimService,
+		orderRepo:         orderRepo,
+		orderDetailRepo:   orderDetailRepo,
+		productRepo:       productRepo,
+		walletService:     walletService,
+		esimClientService: esimClientService,
 	}
 }
 
@@ -331,7 +335,7 @@ func (s *orderService) CreateEsimOrder(ctx context.Context, req *CreateEsimOrder
 	}
 
 	// 7. 调用第三方 eSIM API 创建订单
-	if s.esimService != nil {
+	if s.esimClientService != nil {
 		providerOrder, err := s.createProviderOrder(ctx, order, product, req.CustomerEmail)
 		if err != nil {
 			// 创建第三方订单失败，解冻余额
@@ -384,6 +388,7 @@ func (s *orderService) GetOrderWithDetail(ctx context.Context, orderID uint, use
 		TotalAmount:     order.Amount,
 		Status:          order.Status,
 		ProviderOrderID: order.ProviderOrderID,
+		ProviderOrderNo: order.ProviderOrderNo,
 		CreatedAt:       order.CreatedAt,
 		UpdatedAt:       order.UpdatedAt,
 		CompletedAt:     order.CompletedAt,
@@ -407,6 +412,47 @@ func (s *orderService) GetOrderWithDetail(ctx context.Context, orderID uint, use
 				result.Esims = esims
 			}
 		}
+	}
+
+	return result, nil
+}
+
+// GetOrderDetailsByOrderIDs 批量获取订单详情
+func (s *orderService) GetOrderDetailsByOrderIDs(ctx context.Context, orderIDs []uint) (map[uint]*OrderWithDetail, error) {
+	if len(orderIDs) == 0 {
+		return make(map[uint]*OrderWithDetail), nil
+	}
+
+	// 批量获取订单详情
+	orderDetailsMap, err := s.orderDetailRepo.GetByOrderIDs(ctx, orderIDs)
+	if err != nil {
+		return nil, fmt.Errorf("批量获取订单详情失败: %w", err)
+	}
+
+	// 构建结果 map
+	result := make(map[uint]*OrderWithDetail, len(orderDetailsMap))
+	for orderID, orderDetail := range orderDetailsMap {
+		detail := &OrderWithDetail{
+			OrderID: orderID,
+		}
+
+		// 解析 OrderItems
+		if orderDetail.OrderItems != "" {
+			var orderItems []OrderItemDetail
+			if err := json.Unmarshal([]byte(orderDetail.OrderItems), &orderItems); err == nil {
+				detail.OrderItems = orderItems
+			}
+		}
+
+		// 解析 Esims
+		if orderDetail.Esims != "" {
+			var esims []EsimDetail
+			if err := json.Unmarshal([]byte(orderDetail.Esims), &esims); err == nil {
+				detail.Esims = esims
+			}
+		}
+
+		result[orderID] = detail
 	}
 
 	return result, nil
@@ -555,7 +601,7 @@ func (s *orderService) createProviderOrder(ctx context.Context, order *models.Or
 	}
 
 	// 调用 eSIM 服务创建订单
-	providerOrder, err := s.esimService.CreateOrder(ctx, createOrderReq)
+	providerOrder, err := s.esimClientService.CreateOrder(ctx, createOrderReq)
 	if err != nil {
 		return nil, fmt.Errorf("调用第三方 API 失败: %w", err)
 	}

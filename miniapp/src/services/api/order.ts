@@ -128,7 +128,7 @@ export class OrderApi {
 
   // 转换后端 eSIM 订单数据为前端格式
   private transformEsimOrder(backendData: any): EsimOrder {
-    return {
+    const order: EsimOrder = {
       id: String(backendData.order_id),
       orderNo: backendData.order_no,
       productId: backendData.product_id,
@@ -142,6 +142,16 @@ export class OrderApi {
       updatedAt: backendData.updated_at,
       completedAt: backendData.completed_at
     }
+
+    // 如果后端返回了订单详情数据（列表接口现在也会返回）
+    if (backendData.order_items) {
+      order.orderItems = backendData.order_items
+    }
+    if (backendData.esims) {
+      order.esims = backendData.esims
+    }
+
+    return order
   }
 
   // 转换后端 eSIM 订单详情数据为前端格式

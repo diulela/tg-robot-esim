@@ -1,4 +1,4 @@
-package services
+package common
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 )
 
 // EsimService eSIM产品服务接口
-type EsimService interface {
+type EsimClientService interface {
 	// GetProducts 获取产品列表
 	GetProducts(ctx context.Context, params *esim.ProductParams) (*esim.ProductListResponse, error)
 
@@ -32,13 +32,13 @@ type EsimService interface {
 	TopupEsim(ctx context.Context, orderID int, req esim.TopupRequest) (*esim.TopupResponse, error)
 }
 
-// esimServiceImpl eSIM服务实现
-type esimServiceImpl struct {
+// esimClientServiceImpl eSIM服务实现
+type esimClientServiceImpl struct {
 	client *esim.Client
 }
 
 // NewEsimService 创建eSIM服务
-func NewEsimService(apiKey, apiSecret, baseURL string, timezoneOffset int) EsimService {
+func NewEsimClientService(apiKey, apiSecret, baseURL string, timezoneOffset int) EsimClientService {
 	client := esim.NewClient(esim.Config{
 		APIKey:         apiKey,
 		APISecret:      apiSecret,
@@ -46,43 +46,43 @@ func NewEsimService(apiKey, apiSecret, baseURL string, timezoneOffset int) EsimS
 		TimezoneOffset: timezoneOffset,
 	})
 
-	return &esimServiceImpl{
+	return &esimClientServiceImpl{
 		client: client,
 	}
 }
 
 // GetProducts 获取产品列表
-func (s *esimServiceImpl) GetProducts(ctx context.Context, params *esim.ProductParams) (*esim.ProductListResponse, error) {
+func (s *esimClientServiceImpl) GetProducts(ctx context.Context, params *esim.ProductParams) (*esim.ProductListResponse, error) {
 	return s.client.GetProducts(params)
 }
 
 // GetProduct 获取产品详情
-func (s *esimServiceImpl) GetProduct(ctx context.Context, productID int) (*esim.ProductDetailResponse, error) {
+func (s *esimClientServiceImpl) GetProduct(ctx context.Context, productID int) (*esim.ProductDetailResponse, error) {
 	return s.client.GetProduct(productID)
 }
 
 // CreateOrder 创建订单
-func (s *esimServiceImpl) CreateOrder(ctx context.Context, req esim.CreateOrderRequest) (*esim.CreateOrderResponse, error) {
+func (s *esimClientServiceImpl) CreateOrder(ctx context.Context, req esim.CreateOrderRequest) (*esim.CreateOrderResponse, error) {
 	return s.client.CreateOrder(req)
 }
 
 // GetOrder 获取订单详情
-func (s *esimServiceImpl) GetOrder(ctx context.Context, orderNo string) (*esim.OrderDetailResponse, error) {
+func (s *esimClientServiceImpl) GetOrder(ctx context.Context, orderNo string) (*esim.OrderDetailResponse, error) {
 	return s.client.GetOrder(orderNo)
 }
 
 // GetEsimUsage 获取eSIM使用情况
-func (s *esimServiceImpl) GetEsimUsage(ctx context.Context, orderID int) (*esim.EsimUsageResponse, error) {
+func (s *esimClientServiceImpl) GetEsimUsage(ctx context.Context, orderID int) (*esim.EsimUsageResponse, error) {
 	return s.client.GetEsimUsage(orderID)
 }
 
 // GetTopupPackages 获取充值套餐
-func (s *esimServiceImpl) GetTopupPackages(ctx context.Context, orderID int) (*esim.TopupPackagesResponse, error) {
+func (s *esimClientServiceImpl) GetTopupPackages(ctx context.Context, orderID int) (*esim.TopupPackagesResponse, error) {
 	return s.client.GetTopupPackages(orderID)
 }
 
 // TopupEsim eSIM充值
-func (s *esimServiceImpl) TopupEsim(ctx context.Context, orderID int, req esim.TopupRequest) (*esim.TopupResponse, error) {
+func (s *esimClientServiceImpl) TopupEsim(ctx context.Context, orderID int, req esim.TopupRequest) (*esim.TopupResponse, error) {
 	return s.client.TopupEsim(orderID, req)
 }
 

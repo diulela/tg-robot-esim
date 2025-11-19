@@ -242,6 +242,7 @@ type OrderWithDetail struct {
 	TotalAmount     string             `json:"total_amount"`
 	Status          models.OrderStatus `json:"status"`
 	ProviderOrderID string             `json:"provider_order_id,omitempty"`
+	ProviderOrderNo string             `json:"provider_order_no,omitempty"`
 	OrderItems      []OrderItemDetail  `json:"order_items,omitempty"`
 	Esims           []EsimDetail       `json:"esims,omitempty"`
 	CreatedAt       time.Time          `json:"created_at"`

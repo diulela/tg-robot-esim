@@ -118,7 +118,20 @@ func (h *MiniAppApiService) handleGetEsimOrders(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// 转换订单数据格式
+	// 收集订单 IDs
+	orderIDs := make([]uint, 0, len(orders))
+	for _, order := range orders {
+		orderIDs = append(orderIDs, order.ID)
+	}
+
+	// 批量获取订单详情
+	orderDetailsMap, err := h.orderService.GetOrderDetailsByOrderIDs(ctx, orderIDs)
+	if err != nil {
+		// 获取详情失败不影响主流程，使用空 map
+		orderDetailsMap = make(map[uint]*services.OrderWithDetail)
+	}
+
+	// 转换订单数据格式，合并详情
 	var orderList []map[string]interface{}
 	for _, order := range orders {
 		orderData := map[string]interface{}{
@@ -131,10 +144,18 @@ func (h *MiniAppApiService) handleGetEsimOrders(w http.ResponseWriter, r *http.R
 			"total_amount":      order.Amount,
 			"status":            order.Status,
 			"provider_order_id": order.ProviderOrderID,
+			"provider_order_no": order.ProviderOrderNo,
 			"created_at":        order.CreatedAt,
 			"updated_at":        order.UpdatedAt,
 			"completed_at":      order.CompletedAt,
 		}
+
+		// 如果有订单详情，合并进去
+		if detail, exists := orderDetailsMap[order.ID]; exists {
+			orderData["order_items"] = detail.OrderItems
+			orderData["esims"] = detail.Esims
+		}
+
 		orderList = append(orderList, orderData)
 	}
 
@@ -203,6 +224,7 @@ func (h *MiniAppApiService) handleEsimOrderDetail(w http.ResponseWriter, r *http
 		"total_amount":      orderDetail.TotalAmount,
 		"status":            orderDetail.Status,
 		"provider_order_id": orderDetail.ProviderOrderID,
+		"provider_order_no": orderDetail.ProviderOrderNo,
 		"order_items":       orderDetail.OrderItems,
 		"esims":             orderDetail.Esims,
 		"created_at":        orderDetail.CreatedAt,
