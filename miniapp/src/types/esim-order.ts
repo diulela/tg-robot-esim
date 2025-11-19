@@ -48,6 +48,10 @@ export interface EsimDetail {
   activationCode: string
   qrCode: string
   status: string
+  apnType?: 'manual' | 'automatic'
+  apnValue?: string
+  isRoaming?: boolean
+  lpaAddress?: string
 }
 
 // eSIM 订单详情

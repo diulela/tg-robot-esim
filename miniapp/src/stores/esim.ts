@@ -219,6 +219,29 @@ export const useESIMStore = defineStore('esim', () => {
     }
   }
 
+  const exportAllPDF = async (orderId: number): Promise<void> => {
+    try {
+      const blob = await esimApi.exportAllPDF(orderId)
+      
+      // 创建下载链接
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `esim-order-all-${orderId}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      
+      console.log('[ESIM Store] 批量 PDF 导出成功')
+    } catch (err) {
+      const errorMessage = ESIMErrorHandler.handleApiError(err)
+      error.value = errorMessage
+      console.error('[ESIM Store] 批量 PDF 导出失败:', err)
+      throw new Error(errorMessage)
+    }
+  }
+
   const getInstallGuide = async (orderId: number): Promise<{ guide: string; qrCode: string }> => {
     try {
       const guide = await esimApi.getInstallGuide(orderId)
@@ -315,6 +338,7 @@ export const useESIMStore = defineStore('esim', () => {
     fetchTopupPackages,
     topupEsim,
     exportPDF,
+    exportAllPDF,
     getInstallGuide,
     clearError,
     reset,
