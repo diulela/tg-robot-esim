@@ -109,29 +109,6 @@ export class ESIMApi {
     }
   }
 
-  // 批量导出所有 eSIM 的 PDF
-  async exportAllPDF(orderId: number): Promise<Blob> {
-    try {
-      const baseURL = import.meta.env['VITE_API_BASE_URL'] || 'http://localhost:8080/api'
-      const response = await fetch(`${baseURL}/miniapp/esim/pdf-all/${orderId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`,
-          'X-Telegram-Init-Data': localStorage.getItem('telegram_init_data') || ''
-        }
-      })
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-      
-      return await response.blob()
-    } catch (error) {
-      console.error('[ESIM] 批量 PDF 导出失败:', error)
-      throw new Error('批量 PDF 导出失败')
-    }
-  }
-
   // 获取安装说明
   async getInstallGuide(orderId: number): Promise<{ guide: string; qrCode: string }> {
     try {

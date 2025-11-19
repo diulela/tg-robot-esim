@@ -39,7 +39,7 @@
             <div class="info-item">
               <span class="info-label">订单编号</span>
               <div class="info-value-container">
-                <span class="info-value">{{ order.orderNo }}</span>
+                <span class="info-value">{{ order.orderNumber }}</span>
                 <v-btn icon variant="text" size="small" @click="copyOrderNumber">
                   <v-icon size="16">mdi-content-copy</v-icon>
                 </v-btn>
@@ -51,14 +51,19 @@
               <span class="info-value">{{ formatDateTime(order.createdAt) }}</span>
             </div>
 
-            <div v-if="order.completedAt" class="info-item">
-              <span class="info-label">完成时间</span>
-              <span class="info-value">{{ formatDateTime(order.completedAt) }}</span>
+            <div v-if="order.paidAt" class="info-item">
+              <span class="info-label">支付时间</span>
+              <span class="info-value">{{ formatDateTime(order.paidAt) }}</span>
+            </div>
+
+            <div class="info-item">
+              <span class="info-label">支付方式</span>
+              <span class="info-value">{{ paymentMethodText }}</span>
             </div>
 
             <div class="info-item">
               <span class="info-label">订单金额</span>
-              <span class="info-value price">{{ formatAmount(order.totalAmount) }}</span>
+              <span class="info-value price">{{ formatAmount(order.amount, order.currency) }}</span>
             </div>
           </div>
         </v-card-text>
@@ -76,123 +81,42 @@
             <h4 class="product-name">{{ order.productName }}</h4>
             <div class="product-details">
               <div class="detail-chip">
-                <v-icon start size="14">mdi-package-variant</v-icon>
-                数量: {{ order.quantity }}
+                <v-icon start size="14">mdi-database</v-icon>
+                1GB
               </div>
               <div class="detail-chip">
-                <v-icon start size="14">mdi-currency-usd</v-icon>
-                单价: {{ formatAmount(order.unitPrice) }}
+                <v-icon start size="14">mdi-calendar</v-icon>
+                7天
               </div>
               <div class="detail-chip">
-                <v-icon start size="14">mdi-calculator</v-icon>
-                小计: {{ formatAmount(order.totalAmount) }}
+                <v-icon start size="14">mdi-map-marker</v-icon>
+                亚洲
               </div>
             </div>
           </div>
         </v-card-text>
       </v-card>
 
-      <!-- eSIM 信息卡片列表 -->
-      <div v-if="esimList.length > 0" class="esim-section">
-        <v-card class="info-card" variant="elevated">
-          <v-card-title class="card-title">
-            <v-icon start>mdi-sim</v-icon>
-            eSIM 信息 (共{{ esimList.length }}张卡)
-          </v-card-title>
-          <v-card-text class="card-content">
-            <div v-for="(esim, index) in esimList" :key="esim.iccid" class="esim-item">
-              <div class="esim-header">
-                <v-chip color="primary" size="small">
-                  <v-icon start size="14">mdi-sim</v-icon>
-                  eSIM {{ index + 1 }}
-                </v-chip>
-              </div>
-              <div class="esim-details">
-                <div class="detail-row">
-                  <span class="detail-label">ICCID</span>
-                  <div class="detail-value-container">
-                    <span class="detail-value">{{ esim.iccid }}</span>
-                    <v-btn icon variant="text" size="small" @click="copyText(esim.iccid, 'ICCID')">
-                      <v-icon size="16">mdi-content-copy</v-icon>
-                    </v-btn>
-                  </div>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">激活码</span>
-                  <div class="detail-value-container">
-                    <span class="detail-value">{{ esim.activationCode }}</span>
-                    <v-btn icon variant="text" size="small" @click="copyText(esim.activationCode, '激活码')">
-                      <v-icon size="16">mdi-content-copy</v-icon>
-                    </v-btn>
-                  </div>
-                </div>
-                <div v-if="esim.apnType" class="detail-row">
-                  <span class="detail-label">APN类型</span>
-                  <span class="detail-value">{{ esim.apnType === 'manual' ? '手动' : '自动' }}</span>
-                </div>
-                <div v-if="esim.isRoaming !== undefined" class="detail-row">
-                  <span class="detail-label">是否漫游</span>
-                  <span class="detail-value">{{ esim.isRoaming ? '是' : '否' }}</span>
-                </div>
-              </div>
-              <!-- 二维码 -->
-              <div v-if="esim.qrCode" class="qr-code-section">
-                <img :src="esim.qrCode" alt="eSIM QR Code" class="qr-code-image" />
-              </div>
-            </div>
-          </v-card-text>
-        </v-card>
+      <!-- eSIM 信息卡片 -->
+      <div v-if="order.esimInfo" class="esim-section">
+        <ESIMInfoCard 
+          :esim-info="order.esimInfo" 
+          :order-id="parseInt(order['id'])"
+          :show-q-r-code="true" 
+          :allow-copy="true" 
+          @copy-iccid="handleCopyICCID"
+          @copy-activation-code="handleCopyActivationCode" 
+          @download-q-r="handleDownloadQR"
+          @share-q-r="handleShareQR"
+          @open-usage-dialog="showUsageDialog = true"
+          @open-history-dialog="showHistoryDialog = true"
+          @open-topup-dialog="showTopupDialog = true"
+          @open-install-guide="showInstallGuide = true"
+        />
       </div>
-
-      <!-- 费用信息卡片 -->
-      <v-card class="info-card" variant="elevated">
-        <v-card-title class="card-title">
-          <v-icon start>mdi-cash</v-icon>
-          费用信息
-        </v-card-title>
-
-        <v-card-text class="card-content">
-          <div class="cost-info">
-            <div class="cost-item">
-              <span class="cost-label">商品总额</span>
-              <span class="cost-value">{{ formatAmount(order.totalAmount) }}</span>
-            </div>
-            <v-divider class="my-2" />
-            <div class="cost-item total">
-              <span class="cost-label">实付金额</span>
-              <span class="cost-value price">{{ formatAmount(order.totalAmount) }}</span>
-            </div>
-          </div>
-        </v-card-text>
-      </v-card>
 
       <!-- 操作按钮 -->
       <div class="action-buttons">
-        <v-btn 
-          v-if="esimList.length > 1" 
-          color="primary" 
-          variant="elevated" 
-          block 
-          size="large" 
-          @click="exportAllPDF"
-          :loading="isExportingAll"
-        >
-          <v-icon start>mdi-file-pdf-box</v-icon>
-          导出全部 eSIM 卡为 PDF
-        </v-btn>
-
-        <v-btn 
-          v-if="canRefund" 
-          color="warning" 
-          variant="outlined" 
-          block 
-          size="large" 
-          @click="showRefundDialog = true"
-        >
-          <v-icon start>mdi-undo</v-icon>
-          申请退款
-        </v-btn>
-
         <v-btn v-if="canRetryPayment" color="primary" variant="elevated" block size="large" @click="retryPayment"
           :loading="retryingPayment">
           重新支付
@@ -209,49 +133,51 @@
       </div>
     </div>
 
-    <!-- 退款确认对话框 -->
-    <v-dialog v-model="showRefundDialog" max-width="400" persistent>
-      <v-card>
-        <v-card-title class="dialog-title">
-          <v-icon start color="warning">mdi-alert</v-icon>
-          确认退款
-        </v-card-title>
-        
-        <v-card-text>
-          <p>您确定要申请退款吗？退款后订单将被取消。</p>
-          <v-textarea
-            v-model="refundReason"
-            label="退款原因（可选）"
-            placeholder="请输入退款原因..."
-            rows="3"
-            variant="outlined"
-            class="mt-4"
-          />
-        </v-card-text>
-        
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="outlined" @click="showRefundDialog = false" :disabled="isRefunding">
-            取消
-          </v-btn>
-          <v-btn color="warning" variant="elevated" @click="confirmRefund" :loading="isRefunding">
-            确认退款
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
+    <!-- eSIM 相关弹窗 -->
+    <ESIMUsageDialog 
+      v-if="order"
+      v-model="showUsageDialog" 
+      :order-id="parseInt(order['id'])"
+      @open-topup="showTopupDialog = true"
+    />
+    
+    <ESIMHistoryDialog 
+      v-if="order"
+      v-model="showHistoryDialog" 
+      :order-id="parseInt(order['id'])"
+    />
+    
+    <ESIMTopupDialog 
+      v-if="order"
+      v-model="showTopupDialog" 
+      :order-id="parseInt(order['id'])"
+      @topup-success="handleTopupSuccess"
+    />
+    
+    <ESIMInstallGuide 
+      v-if="order && order.esimInfo"
+      v-model="showInstallGuide" 
+      :order-id="parseInt(order['id'])"
+      :esim-info="order.esimInfo"
+    />
   </PageWrapper>
 </template>
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useOrdersStore } from '@/stores/orders'
 import { useESIMStore } from '@/stores/esim'
 import { useAppStore } from '@/stores/app'
 import { telegramService } from '@/services/telegram'
-import { orderApi } from '@/services/api'
 import PageWrapper from '@/components/layout/PageWrapper.vue'
+import ESIMInfoCard from '@/components/business/ESIMInfoCard.vue'
+import type { OrderStatus } from '@/types'
+
+// 异步加载弹窗组件
+const ESIMUsageDialog = defineAsyncComponent(() => import('@/components/business/ESIMUsageDialog.vue'))
+const ESIMHistoryDialog = defineAsyncComponent(() => import('@/components/business/ESIMHistoryDialog.vue'))
+const ESIMTopupDialog = defineAsyncComponent(() => import('@/components/business/ESIMTopupDialog.vue'))
+const ESIMInstallGuide = defineAsyncComponent(() => import('@/components/business/ESIMInstallGuide.vue'))
 
 // Props
 interface Props {
@@ -271,33 +197,33 @@ const appStore = useAppStore()
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 const retryingPayment = ref(false)
-const isExportingAll = ref(false)
-const showRefundDialog = ref(false)
-const refundReason = ref('')
-const isRefunding = ref(false)
+
+// 弹窗状态
+const showUsageDialog = ref(false)
+const showHistoryDialog = ref(false)
+const showTopupDialog = ref(false)
+const showInstallGuide = ref(false)
 
 // 计算属性
 const orderId = computed(() => props.id || route.params['id'] as string)
 
 const order = computed(() => {
   if (orderId.value) {
-    return ordersStore.currentOrder
+    return ordersStore.findOrderById(orderId.value) || ordersStore.currentOrder
   }
   return null
 })
 
-const esimList = computed(() => order.value?.esims || [])
-
 const statusIcon = computed(() => {
   if (!order.value) return 'mdi-help-circle'
 
-  const iconMap: Record<string, string> = {
+  const iconMap: Record<OrderStatus, string> = {
     pending: 'mdi-clock-outline',
     paid: 'mdi-check-circle',
     processing: 'mdi-cog',
     completed: 'mdi-check-circle',
     cancelled: 'mdi-close-circle',
-    failed: 'mdi-alert-circle'
+    refunded: 'mdi-undo'
   }
 
   return iconMap[order.value.status] || 'mdi-help-circle'
@@ -327,8 +253,8 @@ const statusSubtitle = computed(() => {
       return 'eSIM 已准备就绪'
     case 'cancelled':
       return '订单已取消'
-    case 'failed':
-      return '订单处理失败'
+    case 'refunded':
+      return '订单已退款'
     default:
       return ''
   }
@@ -338,8 +264,16 @@ const canRetryPayment = computed(() => {
   return order.value?.status === 'pending'
 })
 
-const canRefund = computed(() => {
-  return order.value?.status === 'paid' || order.value?.status === 'completed'
+const paymentMethodText = computed(() => {
+  if (!order.value?.paymentMethod) return '未知'
+
+  const methodMap: Record<string, string> = {
+    usdt_trc20: 'USDT-TRC20',
+    telegram_stars: 'Telegram Stars',
+    credit_card: '信用卡'
+  }
+
+  return methodMap[order.value.paymentMethod] || '其他'
 })
 
 // 方法
@@ -369,28 +303,10 @@ const copyOrderNumber = async () => {
   if (!order.value) return
 
   try {
-    await navigator.clipboard.writeText(order.value.orderNo)
+    await navigator.clipboard.writeText(order.value.orderNumber)
     appStore.showNotification({
       type: 'success',
       message: '订单号已复制到剪贴板',
-      duration: 2000
-    })
-    telegramService.impactFeedback('light')
-  } catch (err) {
-    appStore.showNotification({
-      type: 'error',
-      message: '复制失败',
-      duration: 2000
-    })
-  }
-}
-
-const copyText = async (text: string, label: string) => {
-  try {
-    await navigator.clipboard.writeText(text)
-    appStore.showNotification({
-      type: 'success',
-      message: `${label}已复制到剪贴板`,
       duration: 2000
     })
     telegramService.impactFeedback('light')
@@ -409,10 +325,14 @@ const retryPayment = async () => {
   retryingPayment.value = true
 
   try {
-    // TODO: 实现重新支付逻辑
+    const paymentUrl = await ordersStore.retryPayment(order.value['id'] as string)
+
+    // 打开支付链接
+    telegramService.openLink(paymentUrl)
+
     appStore.showNotification({
       type: 'info',
-      message: '重新支付功能开发中...',
+      message: '正在跳转到支付页面...',
       duration: 3000
     })
   } catch (err) {
@@ -437,8 +357,24 @@ const formatDateTime = (dateString: string): string => {
   })
 }
 
-const formatAmount = (amount: string): string => {
-  return `$${parseFloat(amount).toFixed(2)}`
+const formatAmount = (amount: number, currency: string): string => {
+  return `${currency === 'USD' ? '$' : '¥'}${amount.toFixed(2)}`
+}
+
+const handleCopyICCID = (iccid: string) => {
+  console.log('ICCID 已复制:', iccid)
+}
+
+const handleCopyActivationCode = (code: string) => {
+  console.log('激活码已复制:', code)
+}
+
+const handleDownloadQR = (qrCode: string) => {
+  console.log('二维码已下载:', qrCode)
+}
+
+const handleShareQR = (qrCode: string) => {
+  console.log('二维码已分享:', qrCode)
 }
 
 const scrollToESIM = () => {
@@ -452,66 +388,25 @@ const goBack = () => {
   router.push({ name: 'Orders' })
 }
 
-// 批量导出 PDF
-const exportAllPDF = async () => {
-  if (!order.value || isExportingAll.value) return
-
-  isExportingAll.value = true
-  
+const handleTopupSuccess = async () => {
+  // 充值成功后刷新订单详情和清除 eSIM 缓存
   try {
-    await esimStore.exportAllPDF(parseInt(order.value.id))
-    
+    if (order.value) {
+      esimStore.clearCache(parseInt(order.value['id'] as string))
+    }
+    await fetchOrderDetail()
     appStore.showNotification({
       type: 'success',
-      message: '批量 PDF 导出成功',
-      duration: 2000
-    })
-    
-    telegramService.impactFeedback('medium')
-  } catch (error) {
-    appStore.showNotification({
-      type: 'error',
-      message: error instanceof Error ? error.message : '批量 PDF 导出失败',
+      message: '充值成功，订单信息已更新',
       duration: 3000
     })
-  } finally {
-    isExportingAll.value = false
-  }
-}
-
-// 确认退款
-const confirmRefund = async () => {
-  if (!order.value || isRefunding.value) return
-
-  isRefunding.value = true
-  
-  try {
-    const result = await orderApi.refundOrder(order.value.id, refundReason.value || '用户申请退款')
-    
-    if (result.success) {
-      appStore.showNotification({
-        type: 'success',
-        message: '退款申请已提交',
-        duration: 3000
-      })
-      
-      telegramService.impactFeedback('heavy')
-      
-      // 关闭对话框并刷新订单详情
-      showRefundDialog.value = false
-      refundReason.value = ''
-      await fetchOrderDetail()
-    } else {
-      throw new Error(result.message || '退款申请失败')
-    }
   } catch (error) {
+    console.error('刷新订单详情失败:', error)
     appStore.showNotification({
-      type: 'error',
-      message: error instanceof Error ? error.message : '退款申请失败',
-      duration: 3000
+      type: 'warning',
+      message: '充值成功，但刷新订单信息失败，请手动刷新页面',
+      duration: 4000
     })
-  } finally {
-    isRefunding.value = false
   }
 }
 
@@ -684,99 +579,6 @@ onMounted(async () => {
 
   .esim-section {
   margin-bottom: 16px;
-
-  .esim-item {
-    padding: 16px 0;
-    border-bottom: 1px solid rgba(var(--v-theme-outline), 0.12);
-
-    &:last-child {
-      border-bottom: none;
-    }
-
-    .esim-header {
-      margin-bottom: 12px;
-    }
-
-    .esim-details {
-      .detail-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 8px 0;
-
-        .detail-label {
-          font-size: 0.875rem;
-          color: rgba(var(--v-theme-on-surface), 0.6);
-          font-weight: 500;
-        }
-
-        .detail-value {
-          font-size: 0.875rem;
-          font-weight: 500;
-          color: rgb(var(--v-theme-on-surface));
-          font-family: 'Courier New', monospace;
-          word-break: break-all;
-        }
-
-        .detail-value-container {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex: 1;
-          justify-content: flex-end;
-        }
-      }
-    }
-
-    .qr-code-section {
-      text-align: center;
-      margin-top: 16px;
-
-      .qr-code-image {
-        width: 200px;
-        height: 200px;
-        border: 1px solid rgba(var(--v-theme-outline), 0.2);
-        border-radius: 8px;
-        background: white;
-      }
-    }
-  }
-  }
-
-  .cost-info {
-    .cost-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 0;
-
-      .cost-label {
-        font-size: 0.875rem;
-        color: rgba(var(--v-theme-on-surface), 0.6);
-        font-weight: 500;
-      }
-
-      .cost-value {
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: rgb(var(--v-theme-on-surface));
-
-        &.price {
-          color: rgb(var(--v-theme-primary));
-          font-weight: 600;
-          font-size: 1.1rem;
-        }
-      }
-
-      &.total {
-        padding-top: 12px;
-
-        .cost-label {
-          font-size: 1rem;
-          font-weight: 600;
-        }
-      }
-    }
   }
 
   .action-buttons {

@@ -208,11 +208,6 @@ export class OrderApi {
     const response = await apiClient.get(`/miniapp/esim/orders/${orderId}`)
     return this.transformEsimOrderDetail(response)
   }
-
-  // 申请退款
-  async refundOrder(orderId: string, reason: string): Promise<{ success: boolean; message: string }> {
-    return apiClient.post(`/miniapp/esim/orders/${orderId}/refund`, { reason })
-  }
 }
 
 // 创建订单 API 实例
