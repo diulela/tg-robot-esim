@@ -287,11 +287,9 @@ func convertEsims(esims []esim.OrderEsim) []EsimDetail {
 	var result []EsimDetail
 	for _, esim := range esims {
 		result = append(result, EsimDetail{
-			ID:                esim.ID,
-			ICCID:             esim.ICCID,
-			Status:            esim.Status,
-			HasActivationCode: esim.HasActivationCode,
-			HasQrCode:         esim.HasQrCode,
+			ID:     esim.ID,
+			ICCID:  esim.ICCID,
+			Status: esim.Status,
 		})
 	}
 	return result

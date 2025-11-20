@@ -20,6 +20,7 @@ const (
 // OrderItem 订单项
 type OrderItem struct {
 	ID          int         `json:"id"`          // 订单项ID
+	OrderId     int         `json:"orderId"`     // 订单ID
 	ProductID   int         `json:"productId"`   // 产品ID
 	ProductName string      `json:"productName"` // 产品名称
 	ProductType ProductType `json:"productType"` // 产品类型
@@ -33,11 +34,15 @@ type OrderItem struct {
 
 // OrderEsim 订单中的eSIM信息
 type OrderEsim struct {
-	ID                int    `json:"id"`                // eSIM ID
-	ICCID             string `json:"iccid"`             // ICCID号码
-	Status            string `json:"status"`            // eSIM状态
-	HasActivationCode bool   `json:"hasActivationCode"` // 是否有激活码
-	HasQrCode         bool   `json:"hasQrCode"`         // 是否有二维码
+	ID             int    `json:"id"`             // eSIM ID
+	ICCID          string `json:"iccid"`          // ICCID号码
+	Status         string `json:"status"`         // eSIM状态
+	ActivationCode string `json:"activationCode"` //激活码
+	QrCode         string `json:"qrCode"`         //二维码
+	Lpa            string `json:"lpa"`            //LPA
+	DirectAppleUrl string `json:"directAppleUrl"` //直接apple下载链接
+	ActivatedAt    string `json:"activatedAt"`    //激活时间
+	ExpiresAt      string `json:"expiresAt"`      //过期时间
 }
 
 // Order 订单信息
