@@ -29,7 +29,6 @@ type Order struct {
 	ProductName string         `gorm:"size:200" json:"product_name"`                  // 产品名称（冗余）
 	Amount      string         `gorm:"type:decimal(10,2);not null" json:"amount"`     // 订单金额
 	Status      OrderStatus    `gorm:"size:20;default:'pending';index" json:"status"` // 订单状态
-	TxHash      string         `gorm:"size:100;index" json:"tx_hash"`                 // 交易哈希
 	Remark      string         `gorm:"type:text" json:"remark"`                       // 备注
 	PaidAt      *time.Time     `json:"paid_at,omitempty"`                             // 支付时间
 	CompletedAt *time.Time     `json:"completed_at,omitempty"`                        // 完成时间

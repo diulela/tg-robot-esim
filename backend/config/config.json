@@ -20,7 +20,7 @@
     "monitor_interval": "30s",
     "required_confirmations": 5,
     "max_block_delay": 100,
-    "wallet_address": "TV22SEQDCaJB6KCbPNDR8AmELTgwjJKnw1"
+    "wallet_address": "TQ5XEEug6WUU5QH6egEjwmucmGDq7Hggzj"
   },
   "logging": {
     "level": "info",
