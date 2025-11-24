@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -18,8 +17,10 @@ import (
 type OrderService interface {
 	CreateOrder(ctx context.Context, userID int64, productID int) (*models.Order, error)
 	GetOrderByID(ctx context.Context, id uint) (*models.Order, error)
+	GetOrderByIDs(ctx context.Context, ids []uint) ([]*models.Order, error)
 	GetOrderByOrderNo(ctx context.Context, orderNo string) (*models.Order, error)
 	GetUserOrders(ctx context.Context, userID int64, limit, offset int) ([]*models.Order, error)
+	GetUserOrderByID(ctx context.Context, id uint, userID int64) (*models.Order, error)
 	PayOrder(ctx context.Context, orderNo string) error
 	CompleteOrder(ctx context.Context, orderNo string) error
 	CancelOrder(ctx context.Context, orderNo string) error
@@ -28,12 +29,6 @@ type OrderService interface {
 	// eSIM 订单处理相关方法
 	// CreateEsimOrder 创建 eSIM 商品购买订单（含余额冻结）
 	CreateEsimOrder(ctx context.Context, req *CreateEsimOrderRequest) (*EsimOrderResponse, error)
-
-	// GetOrderWithDetail 获取包含详情的订单信息
-	GetOrderWithDetail(ctx context.Context, orderID uint, userID int64) (*OrderWithDetail, error)
-
-	// GetOrderDetailsByOrderIDs 批量获取订单详情
-	GetOrderDetailsByOrderIDs(ctx context.Context, orderIDs []uint) (map[uint]*OrderWithDetail, error)
 
 	// ProcessOrderCompletion 处理订单完成（确认扣费）
 	ProcessOrderCompletion(ctx context.Context, orderID uint, providerOrderData *ProviderOrderData) error
@@ -59,26 +54,26 @@ type OrderStats struct {
 // orderService 订单服务实现
 type orderService struct {
 	orderRepo         repository.OrderRepository
-	orderDetailRepo   repository.OrderDetailRepository
 	productRepo       repository.ProductRepository
 	walletService     WalletService
 	esimClientService service_common.EsimClientService
+	esimCardService   EsimCardService
 }
 
 // NewOrderService 创建订单服务实例
 func NewOrderService(
 	orderRepo repository.OrderRepository,
-	orderDetailRepo repository.OrderDetailRepository,
 	productRepo repository.ProductRepository,
 	walletService WalletService,
 	esimClientService service_common.EsimClientService,
+	esimCardService EsimCardService,
 ) OrderService {
 	return &orderService{
 		orderRepo:         orderRepo,
-		orderDetailRepo:   orderDetailRepo,
 		productRepo:       productRepo,
 		walletService:     walletService,
 		esimClientService: esimClientService,
+		esimCardService:   esimCardService,
 	}
 }
 
@@ -114,6 +109,25 @@ func (s *orderService) CreateOrder(ctx context.Context, userID int64, productID 
 // GetOrderByID 根据ID获取订单
 func (s *orderService) GetOrderByID(ctx context.Context, id uint) (*models.Order, error) {
 	order, err := s.orderRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("order not found: %w", err)
+	}
+
+	return order, nil
+}
+
+func (s *orderService) GetOrderByIDs(ctx context.Context, ids []uint) ([]*models.Order, error) {
+	orders, err := s.orderRepo.GetByIDs(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("order not found: %w", err)
+	}
+
+	return orders, nil
+}
+
+// GetOrderByID 根据ID获取订单
+func (s *orderService) GetUserOrderByID(ctx context.Context, id uint, userID int64) (*models.Order, error) {
+	order, err := s.orderRepo.GetUserOrderByID(ctx, userID, id)
 	if err != nil {
 		return nil, fmt.Errorf("order not found: %w", err)
 	}
@@ -363,101 +377,6 @@ func (s *orderService) CreateEsimOrder(ctx context.Context, req *CreateEsimOrder
 	}, nil
 }
 
-// GetOrderWithDetail 获取包含详情的订单信息
-func (s *orderService) GetOrderWithDetail(ctx context.Context, orderID uint, userID int64) (*OrderWithDetail, error) {
-	// 获取订单基本信息
-	order, err := s.orderRepo.GetByIDWithDetail(ctx, orderID)
-	if err != nil {
-		return nil, fmt.Errorf("订单不存在: %w", err)
-	}
-
-	// 验证用户权限
-	if order.UserID != userID {
-		return nil, errors.New("无权访问该订单")
-	}
-
-	// 构建响应对象
-	result := &OrderWithDetail{
-		OrderID:         order.ID,
-		OrderNo:         order.OrderNo,
-		UserID:          order.UserID,
-		ProductID:       order.ProductID,
-		ProductName:     order.ProductName,
-		Quantity:        order.Quantity,
-		UnitPrice:       order.UnitPrice,
-		TotalAmount:     order.Amount,
-		Status:          order.Status,
-		ProviderOrderID: order.ProviderOrderID,
-		ProviderOrderNo: order.ProviderOrderNo,
-		CreatedAt:       order.CreatedAt,
-		UpdatedAt:       order.UpdatedAt,
-		CompletedAt:     order.CompletedAt,
-	}
-
-	// 手动获取订单详情
-	orderDetail, err := s.orderDetailRepo.GetByOrderID(ctx, order.ID)
-	if err == nil && orderDetail != nil {
-		// 解析 OrderItems
-		if orderDetail.OrderItems != "" {
-			var orderItems []OrderItemDetail
-			if err := json.Unmarshal([]byte(orderDetail.OrderItems), &orderItems); err == nil {
-				result.OrderItems = orderItems
-			}
-		}
-
-		// 解析 Esims
-		if orderDetail.Esims != "" {
-			var esims []EsimDetail
-			if err := json.Unmarshal([]byte(orderDetail.Esims), &esims); err == nil {
-				result.Esims = esims
-			}
-		}
-	}
-
-	return result, nil
-}
-
-// GetOrderDetailsByOrderIDs 批量获取订单详情
-func (s *orderService) GetOrderDetailsByOrderIDs(ctx context.Context, orderIDs []uint) (map[uint]*OrderWithDetail, error) {
-	if len(orderIDs) == 0 {
-		return make(map[uint]*OrderWithDetail), nil
-	}
-
-	// 批量获取订单详情
-	orderDetailsMap, err := s.orderDetailRepo.GetByOrderIDs(ctx, orderIDs)
-	if err != nil {
-		return nil, fmt.Errorf("批量获取订单详情失败: %w", err)
-	}
-
-	// 构建结果 map
-	result := make(map[uint]*OrderWithDetail, len(orderDetailsMap))
-	for orderID, orderDetail := range orderDetailsMap {
-		detail := &OrderWithDetail{
-			OrderID: orderID,
-		}
-
-		// 解析 OrderItems
-		if orderDetail.OrderItems != "" {
-			var orderItems []OrderItemDetail
-			if err := json.Unmarshal([]byte(orderDetail.OrderItems), &orderItems); err == nil {
-				detail.OrderItems = orderItems
-			}
-		}
-
-		// 解析 Esims
-		if orderDetail.Esims != "" {
-			var esims []EsimDetail
-			if err := json.Unmarshal([]byte(orderDetail.Esims), &esims); err == nil {
-				detail.Esims = esims
-			}
-		}
-
-		result[orderID] = detail
-	}
-
-	return result, nil
-}
-
 // ProcessOrderCompletion 处理订单完成（确认扣费）
 func (s *orderService) ProcessOrderCompletion(ctx context.Context, orderID uint, providerOrderData *ProviderOrderData) error {
 	// 获取订单信息
@@ -499,12 +418,32 @@ func (s *orderService) ProcessOrderCompletion(ctx context.Context, orderID uint,
 		fmt.Printf("[DEBUG] OrderItems count: %d, Esims count: %d\n",
 			len(providerOrderData.OrderItems), len(providerOrderData.Esims))
 
-		err = s.saveOrderDetail(ctx, orderID, providerOrderData)
-		if err != nil {
-			// 保存详情失败不应该影响主流程，只记录日志
-			fmt.Printf("[ERROR] Failed to save order detail: %v\n", err)
-		} else {
-			fmt.Printf("[DEBUG] Order detail saved successfully for order %d\n", orderID)
+		// 创建 eSIM 卡记录
+		if len(providerOrderData.Esims) > 0 && s.esimCardService != nil {
+			fmt.Printf("[DEBUG] Creating eSIM cards for order %d, count: %d\n", orderID, len(providerOrderData.Esims))
+			for _, esimDetail := range providerOrderData.Esims {
+				// 构建 OrderEsim 对象
+				orderEsim := &esim.OrderEsim{
+					ID:             esimDetail.ID,
+					ICCID:          esimDetail.ICCID,
+					Status:         esimDetail.Status,
+					ActivationCode: "",
+					QrCode:         "",
+					Lpa:            "",
+					DirectAppleUrl: "",
+					ActivatedAt:    "",
+					ExpiresAt:      "",
+				}
+
+				// 创建 eSIM 卡
+				_, err := s.esimCardService.CreateEsimCard(ctx, orderID, orderEsim)
+				if err != nil {
+					fmt.Printf("[ERROR] Failed to create eSIM card for order %d: %v\n", orderID, err)
+					// 创建失败不影响主流程，只记录日志
+				} else {
+					fmt.Printf("[DEBUG] eSIM card created successfully for ICCID: %s\n", esimDetail.ICCID)
+				}
+			}
 		}
 	} else {
 		fmt.Printf("[WARNING] Provider order data is nil for order %d\n", orderID)
@@ -551,24 +490,6 @@ func (s *orderService) ProcessOrderFailure(ctx context.Context, orderID uint, re
 // UpdateOrderSyncInfo 更新订单同步信息
 func (s *orderService) UpdateOrderSyncInfo(ctx context.Context, orderID uint, syncAttempts int, nextSyncAt *time.Time) error {
 	return s.orderRepo.UpdateSyncInfo(ctx, orderID, syncAttempts, nextSyncAt)
-}
-
-// saveOrderDetail 保存订单详情（私有方法）
-func (s *orderService) saveOrderDetail(ctx context.Context, orderID uint, providerOrderData *ProviderOrderData) error {
-	// 序列化数据
-	providerDataJSON, _ := json.Marshal(providerOrderData)
-	orderItemsJSON, _ := json.Marshal(providerOrderData.OrderItems)
-	esimsJSON, _ := json.Marshal(providerOrderData.Esims)
-
-	// 创建或更新订单详情
-	orderDetail := &models.OrderDetail{
-		OrderID:      orderID,
-		ProviderData: string(providerDataJSON),
-		OrderItems:   string(orderItemsJSON),
-		Esims:        string(esimsJSON),
-	}
-
-	return s.orderDetailRepo.CreateOrUpdate(ctx, orderDetail)
 }
 
 // GetUserOrdersWithFilters 根据筛选条件获取用户订单列表

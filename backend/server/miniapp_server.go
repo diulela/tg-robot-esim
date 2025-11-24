@@ -17,6 +17,7 @@ func NewMiniAppHTTPServer(
 	orderService services.OrderService,
 	walletHistoryService services.WalletHistoryService,
 	rechargeService services.RechargeService,
+	esimCardService services.EsimCardService,
 ) *http.Server {
 	mux := http.NewServeMux()
 
@@ -27,6 +28,7 @@ func NewMiniAppHTTPServer(
 		orderService,
 		walletHistoryService,
 		rechargeService,
+		esimCardService,
 	)
 
 	// 注册路由

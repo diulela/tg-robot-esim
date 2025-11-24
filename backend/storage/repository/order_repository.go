@@ -13,12 +13,14 @@ import (
 type OrderRepository interface {
 	Create(ctx context.Context, order *models.Order) error
 	GetByID(ctx context.Context, id uint) (*models.Order, error)
+	GetByIDs(ctx context.Context, id []uint) ([]*models.Order, error)
 	GetByOrderNo(ctx context.Context, orderNo string) (*models.Order, error)
 	GetByUserID(ctx context.Context, userID int64, limit, offset int) ([]*models.Order, error)
 	Update(ctx context.Context, order *models.Order) error
 	UpdateStatus(ctx context.Context, id uint, status models.OrderStatus) error
 	Delete(ctx context.Context, id uint) error
 	CountByUserID(ctx context.Context, userID int64) (int64, error)
+	GetUserOrderByID(ctx context.Context, userID int64, orderID uint) (*models.Order, error)
 
 	// eSIM 订单处理相关方法
 	// GetByIDWithDetail 根据ID获取订单（包含详情）
@@ -228,4 +230,26 @@ func (r *orderRepository) GetByUserIDWithFilters(ctx context.Context, userID int
 
 	err := query.Find(&orders).Error
 	return orders, total, err
+}
+
+func (r *orderRepository) GetUserOrderByID(ctx context.Context, userID int64, orderID uint) (*models.Order, error) {
+	var order models.Order
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND id = ?", userID, orderID).
+		First(&order).Error
+	if err != nil {
+		return nil, err
+	}
+	return &order, nil
+}
+
+func (r *orderRepository) GetByIDs(ctx context.Context, id []uint) ([]*models.Order, error) {
+	var orders []*models.Order
+	err := r.db.WithContext(ctx).
+		Where("id IN ?", id).
+		Find(&orders).Error
+	if err != nil {
+		return nil, err
+	}
+	return orders, nil
 }

@@ -18,9 +18,10 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.UserSession{},
 		&models.Wallet{},
 		&models.Order{},
-		&models.OrderDetail{},
+		// &models.OrderDetail{},
 		&models.RechargeOrder{},
 		&models.WalletHistory{},
+		&models.EsimCard{}, // eSIM 卡模型
 	)
 
 	if err != nil {

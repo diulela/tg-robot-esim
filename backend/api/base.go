@@ -16,6 +16,7 @@ type MiniAppApiService struct {
 	orderService         services.OrderService
 	walletHistoryService services.WalletHistoryService
 	rechargeService      services.RechargeService
+	esimCardService      services.EsimCardService
 }
 
 // NewMiniAppApiService 创建 Mini App 处理器实例
@@ -25,6 +26,7 @@ func NewMiniAppApiService(
 	orderService services.OrderService,
 	walletHistoryService services.WalletHistoryService,
 	rechargeService services.RechargeService,
+	esimCardService services.EsimCardService,
 ) *MiniAppApiService {
 	return &MiniAppApiService{
 		productService:       productService,
@@ -32,6 +34,7 @@ func NewMiniAppApiService(
 		orderService:         orderService,
 		walletHistoryService: walletHistoryService,
 		rechargeService:      rechargeService,
+		esimCardService:      esimCardService,
 	}
 }
 
@@ -63,6 +66,7 @@ const (
 	ErrCodeProductUnavailable  = 40008 // 产品暂不可用
 	ErrCodeUnauthorized        = 40100 // 未授权访问
 	ErrCodeInsufficientBalance = 40009 // 余额不足（用于订单创建）
+	ErrCodeNotFound            = 40400 // 资源未找到
 
 	// 服务器错误 (50xxx)
 	ErrCodeGenerateAmount  = 50001 // 生成精确金额失败

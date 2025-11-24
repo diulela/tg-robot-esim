@@ -20,6 +20,9 @@ func (h *MiniAppApiService) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/miniapp/esim/orders", h.handleEsimOrders)
 	mux.HandleFunc("/api/miniapp/esim/orders/", h.handleEsimOrderDetail)
 
+	// eSIM 卡相关
+	mux.HandleFunc("/api/miniapp/esim/cards", h.handleEsimCards)
+
 	// 钱包历史相关
 	mux.HandleFunc("/api/miniapp/wallet/history", h.handleWalletHistory)
 	mux.HandleFunc("/api/miniapp/wallet/history/stats", h.handleWalletHistoryStats)

@@ -288,3 +288,42 @@ type OrderFilters struct {
 	Limit     int                `json:"limit"`
 	Offset    int                `json:"offset"`
 }
+
+// EsimCardFilters eSIM 卡筛选条件
+type EsimCardFilters struct {
+	Status    models.EsimStatus `json:"status,omitempty"`
+	StartDate string            `json:"start_date,omitempty"`
+	EndDate   string            `json:"end_date,omitempty"`
+	Limit     int               `json:"limit"`
+	Offset    int               `json:"offset"`
+}
+
+// EsimCardWithOrder eSIM 卡及其购买订单
+type EsimCardWithOrder struct {
+	EsimCard      *models.EsimCard `json:"esim_card"`
+	PurchaseOrder *models.Order    `json:"purchase_order"`
+}
+
+// EsimCardService eSIM 卡服务接口
+type EsimCardService interface {
+	// CreateEsimCard 创建 eSIM 卡记录
+	CreateEsimCard(ctx context.Context, orderID uint, providerEsim interface{}) (*models.EsimCard, error)
+
+	// GetEsimCard 获取 eSIM 卡详情
+	GetEsimCard(ctx context.Context, esimID uint, userID int64) (*models.EsimCard, error)
+
+	// GetEsimCardByICCID 根据 ICCID 获取 eSIM 卡
+	GetEsimCardByICCID(ctx context.Context, iccid string) (*models.EsimCard, error)
+
+	// GetUserEsimCards 获取用户的所有 eSIM 卡
+	GetUserEsimCards(ctx context.Context, userID int64, filters EsimCardFilters) ([]*models.EsimCard, int64, error)
+
+	// SyncEsimCardStatus 同步 eSIM 卡状态和使用情况
+	SyncEsimCardStatus(ctx context.Context, esimID uint) error
+
+	// GetEsimCardWithOrder 获取 eSIM 卡及其关联的购买订单
+	GetEsimCardWithOrder(ctx context.Context, esimID uint, userID int64) (*EsimCardWithOrder, error)
+
+	// UpdateEsimCardUsage 更新 eSIM 卡使用情况
+	UpdateEsimCardUsage(ctx context.Context, esimID uint, usageInfo interface{}) error
+}

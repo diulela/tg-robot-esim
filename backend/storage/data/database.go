@@ -28,9 +28,9 @@ type Database struct {
 	productDetailRepo repository.ProductDetailRepository
 	walletRepo        repository.WalletRepository
 	orderRepo         repository.OrderRepository
-	orderDetailRepo   repository.OrderDetailRepository
 	rechargeOrderRepo repository.RechargeOrderRepository
 	walletHistoryRepo repository.WalletHistoryRepository
+	esimCardRepo      repository.EsimCardRepository
 }
 
 // NewDatabase 创建数据库管理器
@@ -99,9 +99,9 @@ func NewDatabase(cfg *config.DatabaseConfig) (*Database, error) {
 	database.productDetailRepo = repository.NewProductDetailRepository(db)
 	database.walletRepo = repository.NewWalletRepository(db)
 	database.orderRepo = repository.NewOrderRepository(db)
-	database.orderDetailRepo = repository.NewOrderDetailRepository(db)
 	database.rechargeOrderRepo = repository.NewRechargeOrderRepository(db)
 	database.walletHistoryRepo = repository.NewWalletHistoryRepository(db)
+	database.esimCardRepo = repository.NewEsimCardRepository(db)
 
 	return database, nil
 }
@@ -120,7 +120,6 @@ func (d *Database) AutoMigrate() error {
 		&models.ProductDetail{},
 		&models.Wallet{},
 		&models.Order{},
-		&models.OrderDetail{},
 		&models.RechargeOrder{},
 		&models.WalletHistory{},
 	)
@@ -172,10 +171,6 @@ func (d *Database) GetOrderRepository() repository.OrderRepository {
 	return d.orderRepo
 }
 
-func (d *Database) GetOrderDetailRepository() repository.OrderDetailRepository {
-	return d.orderDetailRepo
-}
-
 func (d *Database) GetRechargeOrderRepository() repository.RechargeOrderRepository {
 	return d.rechargeOrderRepo
 }
@@ -183,6 +178,10 @@ func (d *Database) GetRechargeOrderRepository() repository.RechargeOrderReposito
 // GetWalletHistoryRepository 获取钱包历史仓库
 func (d *Database) GetWalletHistoryRepository() repository.WalletHistoryRepository {
 	return d.walletHistoryRepo
+}
+
+func (d *Database) GetEsimCardRepository() repository.EsimCardRepository {
+	return d.esimCardRepo
 }
 
 // Transaction 执行数据库事务

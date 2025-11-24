@@ -71,7 +71,6 @@ func main() {
 	walletHistoryService := services.NewWalletHistoryService(db.GetWalletHistoryRepository())
 
 	// 创建服务
-	// 注意：这里需要实现 BlockchainService，暂时传 nil
 	walletService := services.NewWalletService(
 		db.GetWalletRepository(),
 		db.GetRechargeOrderRepository(),
@@ -93,12 +92,18 @@ func main() {
 	}
 
 	productService := services.NewProductService(db.GetProductRepository())
+	esimCardService := services.NewEsimCardService(
+		db.GetEsimCardRepository(),
+		db.GetOrderRepository(),
+		esimService,
+	)
+
 	orderService := services.NewOrderService(
 		db.GetOrderRepository(),
-		db.GetOrderDetailRepository(),
 		db.GetProductRepository(),
 		walletService,
 		esimService,
+		esimCardService,
 	)
 
 	// 初始化订单同步服务
@@ -144,7 +149,15 @@ func main() {
 	)
 
 	// 创建 HTTP 服务器
-	httpServer := server.NewMiniAppHTTPServer(cfg, productService, walletService, orderService, walletHistoryService, rechargeService)
+	httpServer := server.NewMiniAppHTTPServer(
+		cfg,
+		productService,
+		walletService,
+		orderService,
+		walletHistoryService,
+		rechargeService,
+		esimCardService,
+	)
 
 	// 启动区块链监控定时任务
 	go func() {
